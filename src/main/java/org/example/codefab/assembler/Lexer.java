@@ -62,7 +62,14 @@ public class Lexer {
             case '>' -> addToken(TokenType.GREATER);
             case '<' -> addToken(TokenType.LESS);
             case '=' -> addToken(TokenType.EQUAL);
-            default -> throw new UnsupportedOperationException("TODO: more cases");
+            case ' ', '\r', '\t' -> { /* ignore whitespace */ }
+            default -> {
+                if (isAlpha(c)) {
+                    identifier();
+                } else {
+                    throw new UnsupportedOperationException("TODO: more cases");
+                }
+            }
         }
     }
 
@@ -75,7 +82,10 @@ public class Lexer {
     }
 
     private void identifier() {
-        throw new UnsupportedOperationException("TODO: implement identifier");
+        while (!isAtEnd() && isAlphaNumeric(peek())) advance();
+        String text = source.substring(start, current);
+        TokenType type = KEYWORDS.getOrDefault(text, TokenType.IDENTIFIER);
+        addToken(type, null);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
