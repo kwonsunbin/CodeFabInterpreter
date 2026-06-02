@@ -16,7 +16,7 @@ class LexerTest {
     }
 
     @Test void singleCharTokens() {
-        var tokens = lex("(){};+-*/=><");
+        var tokens = lex("(){};+-*/=><!");
         assertEquals(TokenType.LEFT_PAREN,  tokens.get(0).type());
         assertEquals(TokenType.RIGHT_PAREN, tokens.get(1).type());
         assertEquals(TokenType.LEFT_BRACE,  tokens.get(2).type());
@@ -29,7 +29,21 @@ class LexerTest {
         assertEquals(TokenType.EQUAL,       tokens.get(9).type());
         assertEquals(TokenType.GREATER,     tokens.get(10).type());
         assertEquals(TokenType.LESS,        tokens.get(11).type());
-        assertEquals(TokenType.EOF,         tokens.get(12).type());
+        assertEquals(TokenType.BANG,        tokens.get(12).type());
+        assertEquals(TokenType.EOF,         tokens.get(13).type());
+    }
+
+    @Test void compoundOperators() {
+        var tokens = lex(">= <= == !=");
+        assertEquals(TokenType.GREATER_EQUAL, tokens.get(0).type());
+        assertEquals(">=",                    tokens.get(0).origin());
+        assertEquals(TokenType.LESS_EQUAL,    tokens.get(1).type());
+        assertEquals("<=",                    tokens.get(1).origin());
+        assertEquals(TokenType.EQUAL_EQUAL,   tokens.get(2).type());
+        assertEquals("==",                    tokens.get(2).origin());
+        assertEquals(TokenType.BANG_EQUAL,    tokens.get(3).type());
+        assertEquals("!=",                    tokens.get(3).origin());
+        assertEquals(TokenType.EOF,           tokens.get(4).type());
     }
 
     @Test void keywords() {
