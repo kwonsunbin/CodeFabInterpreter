@@ -70,7 +70,7 @@ public class Lexer {
                 } else if (isAlpha(c)) {
                     identifier();
                 } else {
-                    throw new UnsupportedOperationException("TODO: more cases");
+                    throw new LexError(line, "Unexpected character: '" + c + "'");
                 }
             }
         }
