@@ -62,6 +62,7 @@ public class Lexer {
             case '>' -> addToken(TokenType.GREATER);
             case '<' -> addToken(TokenType.LESS);
             case '=' -> addToken(TokenType.EQUAL);
+            case '"' -> string();
             case ' ', '\r', '\t' -> { /* ignore whitespace */ }
             default -> {
                 if (isDigit(c)) {
@@ -76,7 +77,15 @@ public class Lexer {
     }
 
     private void string() {
-        throw new UnsupportedOperationException("TODO: implement string");
+        while (!isAtEnd() && peek() != '"') {
+            advance();
+        }
+        if (isAtEnd()) {
+            throw new LexError(line, "Unterminated string.");
+        }
+        advance(); // closing "
+        String value = source.substring(start + 1, current - 1);
+        addToken(TokenType.STRING, value);
     }
 
     private void number() {
