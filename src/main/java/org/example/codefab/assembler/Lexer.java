@@ -70,7 +70,7 @@ public class Lexer {
             case '=' -> addToken(TokenType.EQUAL);
             case '"' -> string();
             case ' ', '\r', '\t' -> { /* ignore whitespace */ }
-            case '\n' -> { /* newline — line count handled in Cycle 9 */ }
+            case '\n' -> line++;
             default -> {
                 if (isDigit(c)) {
                     number();
