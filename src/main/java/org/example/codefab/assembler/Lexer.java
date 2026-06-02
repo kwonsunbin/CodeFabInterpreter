@@ -39,27 +39,42 @@ public class Lexer {
     }
 
     public List<Token> scanTokens() {
-        // TODO: scan all tokens and append EOF
-        throw new UnsupportedOperationException("TODO: implement scanTokens");
+        while (!isAtEnd()) {
+            start = current;
+            scanToken();
+        }
+        tokens.add(new Token(TokenType.EOF, "", null, line));
+        return tokens;
     }
 
     private void scanToken() {
-        // TODO: read next char and dispatch to the correct handler
-        throw new UnsupportedOperationException("TODO: implement scanToken");
+        char c = advance();
+        switch (c) {
+            case '(' -> addToken(TokenType.LEFT_PAREN);
+            case ')' -> addToken(TokenType.RIGHT_PAREN);
+            case '{' -> addToken(TokenType.LEFT_BRACE);
+            case '}' -> addToken(TokenType.RIGHT_BRACE);
+            case ';' -> addToken(TokenType.SEMICOLON);
+            case '+' -> addToken(TokenType.PLUS);
+            case '-' -> addToken(TokenType.MINUS);
+            case '*' -> addToken(TokenType.STAR);
+            case '/' -> addToken(TokenType.SLASH);
+            case '>' -> addToken(TokenType.GREATER);
+            case '<' -> addToken(TokenType.LESS);
+            case '=' -> addToken(TokenType.EQUAL);
+            default -> throw new UnsupportedOperationException("TODO: more cases");
+        }
     }
 
     private void string() {
-        // TODO: consume characters until closing " and add STRING token
         throw new UnsupportedOperationException("TODO: implement string");
     }
 
     private void number() {
-        // TODO: consume digits (and optional decimal part) and add NUMBER token
         throw new UnsupportedOperationException("TODO: implement number");
     }
 
     private void identifier() {
-        // TODO: consume alphanumeric chars, look up keyword map, add token
         throw new UnsupportedOperationException("TODO: implement identifier");
     }
 
