@@ -27,10 +27,10 @@ class ParserTest {
     }
 
 
-    private Expr.Binary getOuterStatementOfFirstStatement(String src) {
+    private Expr getOuterStatementOfFirstStatement(String src) {
         var stmts = parse(src);
         var print = (Stmt.Print) stmts.getFirst();
-        return (Expr.Binary) print.expression;
+        return print.expression;
     }
 
 
@@ -62,7 +62,7 @@ class ParserTest {
                 new Token(TokenType.SEMICOLON, ";",     null, 1),
                 new Token(TokenType.EOF,       "",      null, 1)
         ));
-        var outer = getOuterStatementOfFirstStatement("print 1 + 2 * 3;");
+        var outer = (Expr.Binary) getOuterStatementOfFirstStatement("print 1 + 2 * 3;");
         assertEquals(TokenType.PLUS, outer.op.type());
         var inner = (Expr.Binary) outer.right;
         assertEquals(TokenType.STAR, inner.op.type());
@@ -81,7 +81,7 @@ class ParserTest {
                 new Token(TokenType.SEMICOLON,   ";",     null, 1),
                 new Token(TokenType.EOF,         "",      null, 1)
         ));
-        var outer = getOuterStatementOfFirstStatement("print (1 + 2) * 3;");
+        var outer = (Expr.Binary) getOuterStatementOfFirstStatement("print (1 + 2) * 3;");
         assertEquals(TokenType.STAR, outer.op.type());
         assertInstanceOf(Expr.Grouping.class, outer.left);
     }
@@ -99,7 +99,7 @@ class ParserTest {
                 new Token(TokenType.SEMICOLON,   ";",     null, 1),
                 new Token(TokenType.EOF,         "",      null, 1)
         ));
-        var outer = getOuterStatementOfFirstStatement("print 10 - 4 - 3;");
+        var outer = (Expr.Binary) getOuterStatementOfFirstStatement("print 10 - 4 - 3;");
         assertInstanceOf(Expr.Binary.class, outer.left);
     }
 
@@ -108,24 +108,18 @@ class ParserTest {
 
         Mockito.when(lexer.scanTokens()).thenReturn(List.of(
                 new Token(TokenType.PRINT,       "print", null, 1),
-                new Token(TokenType.LEFT_PAREN,       "(", null, 1),
                 new Token(TokenType.NUMBER,  "1",     1.0, 1),
                 new Token(TokenType.PLUS,      "+",     null,  1),
                 new Token(TokenType.NUMBER,        "2",     2.0, 1),
-                new Token(TokenType.RIGHT_PAREN,       ")", null, 1),
                 new Token(TokenType.LESS,      "<",     null,  1),
-                new Token(TokenType.LEFT_PAREN,       "(", null, 1),
                 new Token(TokenType.NUMBER, "3",     3.0, 1),
                 new Token(TokenType.PLUS,      "+",     null,  1),
                 new Token(TokenType.NUMBER,        "4",     4.0, 1),
-                new Token(TokenType.RIGHT_PAREN,       ")", null, 1),
                 new Token(TokenType.SEMICOLON,   ";",     null, 1),
                 new Token(TokenType.EOF,         "",      null, 1)
         ));
-        var stmts = parse("print 1 + 2 < 3 + 4;");
-        var print = (Stmt.Print) stmts.get(0);
-
-        assertInstanceOf(Expr.Comparison.class, print.expression);
+        var outer = getOuterStatementOfFirstStatement("print 1 + 2 < 3 + 4;");
+        assertInstanceOf(Expr.Comparison.class, outer);
     }
 //
 //    @Test void andBindsTighterThanOr() {
