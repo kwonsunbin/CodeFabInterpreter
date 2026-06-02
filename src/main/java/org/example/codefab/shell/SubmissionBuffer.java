@@ -26,29 +26,19 @@ public class SubmissionBuffer {
         int     parenDepth = 0;
         int     braceDepth = 0;
 
-        for (int i = 0; i < buffer.length(); i++) {
-            char c = buffer.charAt(i);
-            if (inString) {
-                if (c == '"') inString = false;
-                continue;
-            }
+        for (char c : buffer.toString().toCharArray()) {
             switch (c) {
-                case '"' -> inString = true;
-                case '(' -> parenDepth++;
-                case ')' -> { parenDepth--; if (parenDepth < 0) return true; }
-                case '{' -> braceDepth++;
-                case '}' -> { braceDepth--; if (braceDepth < 0) return true; }
+                case '"' -> inString = !inString;
+                case '(' -> { if (!inString) parenDepth++; }
+                case ')' -> { if (!inString) { parenDepth--; if (parenDepth < 0) return true; } }
+                case '{' -> { if (!inString) braceDepth++; }
+                case '}' -> { if (!inString) { braceDepth--; if (braceDepth < 0) return true; } }
             }
         }
 
         return !inString && parenDepth <= 0 && braceDepth <= 0;
     }
 
-    public String text()  {
-        return buffer.toString();
-    }
-
-    public void   clear() {
-        buffer.setLength(0);
-    }
+    public String text() { return buffer.toString(); }
+    public void  clear() { buffer.setLength(0); }
 }
