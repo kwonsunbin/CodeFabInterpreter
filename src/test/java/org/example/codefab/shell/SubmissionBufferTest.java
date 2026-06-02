@@ -70,6 +70,13 @@ class SubmissionBufferTest {
     }
 
     @Test
+    void strayClosingBraceTreatedAsComplete() {
+        var b = buf();
+        b.append("print 1; }");
+        assertTrue(b.isComplete());
+    }
+
+    @Test
     void clearResets() {
         var b = buf();
         b.append("if (true) {");
@@ -78,5 +85,20 @@ class SubmissionBufferTest {
         assertTrue(b.isEmpty());
         b.append("print 1;");
         assertTrue(b.isComplete());
+    }
+
+    @Test
+    void unterminatedStringIsIncomplete() {
+        var b = buf();
+        b.append("print \"unterminated");
+        assertFalse(b.isComplete()); // inString = true 로 끝남
+    }
+
+    @Test
+    void textReturnsAccumulatedLines() {
+        var b = buf();
+        b.append("var a = 1;");
+        b.append("print a;");
+        assertEquals("var a = 1;\nprint a;\n", b.text());
     }
 }
