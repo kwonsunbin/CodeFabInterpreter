@@ -114,6 +114,12 @@ class LexerTest {
         assertEquals(2, tokens.get(3).line()); // var (second line)
     }
 
+    @Test void newlineIncrementsLine() {
+        var tokens = lex("a\n\nb"); // 개행 2번 → b는 3번째 줄
+        assertEquals(1, tokens.get(0).line()); // a: line 1
+        assertEquals(3, tokens.get(1).line()); // b: line 3
+    }
+
     @Test void unterminatedStringThrows() {
         assertThrows(LexError.class, () -> lex("\"unterminated"));
     }
