@@ -26,6 +26,14 @@ class ParserTest {
         return new Assembler(lexer).assemble(src);
     }
 
+
+    private Expr.Binary getOuterStatementOfFirstStatement(String src) {
+        var stmts = parse(src);
+        var print = (Stmt.Print) stmts.getFirst();
+        return (Expr.Binary) print.expression;
+    }
+
+
     // ── Architecture rule: Expr must never contain a Stmt field ──────────────
 
     @Test void exprNodesNeverContainStmtField() throws Exception {
@@ -54,14 +62,11 @@ class ParserTest {
                 new Token(TokenType.SEMICOLON, ";",     null, 1),
                 new Token(TokenType.EOF,       "",      null, 1)
         ));
-        var stmts = parse("print 1 + 2 * 3;");
-        var print = (Stmt.Print) stmts.getFirst();
-        var outer = (Expr.Binary) print.expression;
+        var outer = getOuterStatementOfFirstStatement("print 1 + 2 * 3;");
         assertEquals(TokenType.PLUS, outer.op.type());
         var inner = (Expr.Binary) outer.right;
         assertEquals(TokenType.STAR, inner.op.type());
     }
-
     @Test void groupingOverridesPrecedence() {
         // print (1 + 2) * 3;  →  Binary(Grouping(Binary(1,+,2)), *, 3)
         Mockito.when(lexer.scanTokens()).thenReturn(List.of(
@@ -76,9 +81,7 @@ class ParserTest {
                 new Token(TokenType.SEMICOLON,   ";",     null, 1),
                 new Token(TokenType.EOF,         "",      null, 1)
         ));
-        var stmts = parse("print (1 + 2) * 3;");
-        var print = (Stmt.Print) stmts.get(0);
-        var outer = (Expr.Binary) print.expression;
+        var outer = getOuterStatementOfFirstStatement("print (1 + 2) * 3;");
         assertEquals(TokenType.STAR, outer.op.type());
         assertInstanceOf(Expr.Grouping.class, outer.left);
     }
