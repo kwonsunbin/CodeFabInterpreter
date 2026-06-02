@@ -85,14 +85,11 @@ public class Lexer {
         while (!isAtEnd() && isAlphaNumeric(peek())) advance();
         String text = source.substring(start, current);
         TokenType type = KEYWORDS.getOrDefault(text, TokenType.IDENTIFIER);
-        Object value;
-        if (type == TokenType.TRUE) {
-            value = Boolean.TRUE;
-        } else if (type == TokenType.FALSE) {
-            value = Boolean.FALSE;
-        } else {
-            value = null;
-        }
+        Object value = switch (type) {
+            case TRUE  -> Boolean.TRUE;
+            case FALSE -> Boolean.FALSE;
+            default    -> null;
+        };
         addToken(type, value);
     }
 
