@@ -58,12 +58,19 @@ public class Lexer {
             case '+' -> addToken(TokenType.PLUS);
             case '-' -> addToken(TokenType.MINUS);
             case '*' -> addToken(TokenType.STAR);
-            case '/' -> addToken(TokenType.SLASH);
+            case '/' -> {
+                if (match('/')) {
+                    while (!isAtEnd() && peek() != '\n') advance();
+                } else {
+                    addToken(TokenType.SLASH);
+                }
+            }
             case '>' -> addToken(TokenType.GREATER);
             case '<' -> addToken(TokenType.LESS);
             case '=' -> addToken(TokenType.EQUAL);
             case '"' -> string();
             case ' ', '\r', '\t' -> { /* ignore whitespace */ }
+            case '\n' -> { /* newline — line count handled in Cycle 9 */ }
             default -> {
                 if (isDigit(c)) {
                     number();
