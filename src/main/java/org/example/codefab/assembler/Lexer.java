@@ -60,6 +60,7 @@ public class Lexer {
             case '*' -> addToken(TokenType.STAR);
             case '/' -> {
                 if (match('/')) {
+                    // Line comment — skip to end of line
                     while (!isAtEnd() && peek() != '\n') advance();
                 } else {
                     addToken(TokenType.SLASH);
@@ -85,12 +86,15 @@ public class Lexer {
 
     private void string() {
         while (!isAtEnd() && peek() != '"') {
+            if (peek() == '\n') line++;
             advance();
         }
         if (isAtEnd()) {
             throw new LexError(line, "Unterminated string.");
         }
         advance(); // closing "
+
+        // Strip surrounding quotes
         String value = source.substring(start + 1, current - 1);
         addToken(TokenType.STRING, value);
     }
