@@ -36,7 +36,7 @@ public class SubmissionBuffer {
             }
         }
 
-        return !inString && parenDepth <= 0 && braceDepth <= 0;
+        return !inString && parenDepth == 0 && braceDepth == 0;
     }
 
     public String text() { return buffer.toString(); }
