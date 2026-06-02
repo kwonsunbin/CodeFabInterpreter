@@ -39,15 +39,17 @@ public class Parser {
     // ── Statements ────────────────────────────────────────────────────────────
 
     private Stmt statement() {
+        if (match(TokenType.VAR))   return varDeclaration();
         if (match(TokenType.PRINT)) return printStatement();
-        // TODO: var / if / for / block / expressionStatement
-        throw new UnsupportedOperationException("TODO: implement remaining statements");
+        return expressionStatement();
     }
 
     /** var IDENTIFIER ( = expression )? ; */
     private Stmt varDeclaration() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement varDeclaration");
+        Token name = consume(TokenType.IDENTIFIER, "Expect variable name.");
+        Expr initializer = match(TokenType.EQUAL) ? expression() : null;
+        consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
+        return new Stmt.Var(name, initializer);
     }
 
     /** if ( expression ) statement ( else statement )? */
@@ -77,8 +79,9 @@ public class Parser {
 
     /** expression ; */
     private Stmt expressionStatement() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement expressionStatement");
+        Expr expr = expression();
+        consume(TokenType.SEMICOLON, "Expect ';' after expression.");
+        return new Stmt.Expression(expr);
     }
 
     // ── Expressions (precedence: low → high) ──────────────────────────────────
@@ -102,7 +105,15 @@ public class Parser {
 
     /** assignment = IDENTIFIER = assignment | logic_or  (right-associative) */
     private Expr assignment() {
-        return or();
+        Expr expr = or();
+        if (match(TokenType.EQUAL)) {
+            Expr value = assignment();
+            if (expr instanceof Expr.Variable v) {
+                return new Expr.Assign(v.name, value);
+            }
+            throw new ParseError(peek().line(), "Invalid assignment target.");
+        }
+        return expr;
     }
 
     private Expr or()         { return leftAssoc(this::and,        Expr.Logical::new,    TokenType.OR); }
@@ -121,13 +132,16 @@ public class Parser {
 
     /** primary = NUMBER | STRING | true | false | IDENTIFIER | ( expression ) */
     private Expr primary() {
-        if (match(TokenType.NUMBER)) return new Expr.Literal(previous().value());
+        if (match(TokenType.NUMBER))     return new Expr.Literal(previous().value());
+        if (match(TokenType.TRUE))       return new Expr.Literal(Boolean.TRUE);
+        if (match(TokenType.FALSE))      return new Expr.Literal(Boolean.FALSE);
+        if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
             return new Expr.Grouping(expr);
         }
-        // TODO: STRING / true / false / IDENTIFIER
+        // TODO: STRING
         throw new ParseError(peek().line(), "Expect expression.");
     }
 

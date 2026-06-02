@@ -165,14 +165,26 @@ class ParserTest {
         assertInstanceOf(Expr.Unary.class, outer.operand);
     }
 
-//    // ── Assignment ────────────────────────────────────────────────────────────
-//
-//    @Test void validAssignment() {
-//        var stmts = parse("var a = 1; a = 2;");
-//        assertInstanceOf(Stmt.Var.class, stmts.get(0));
-//        assertInstanceOf(Stmt.Expression.class, stmts.get(1));
-//        assertInstanceOf(Expr.Assign.class, ((Stmt.Expression) stmts.get(1)).expression);
-//    }
+    // ── Assignment ────────────────────────────────────────────────────────────
+
+    @Test void validAssignment() {
+        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
+                new Token(TokenType.VAR,        "var", null, 1),
+                new Token(TokenType.IDENTIFIER, "a",   null, 1),
+                new Token(TokenType.EQUAL,      "=",   null, 1),
+                new Token(TokenType.NUMBER,     "1",   1.0,  1),
+                new Token(TokenType.SEMICOLON,  ";",   null, 1),
+                new Token(TokenType.IDENTIFIER, "a",   null, 1),
+                new Token(TokenType.EQUAL,      "=",   null, 1),
+                new Token(TokenType.NUMBER,     "2",   2.0,  1),
+                new Token(TokenType.SEMICOLON,  ";",   null, 1),
+                new Token(TokenType.EOF,        "",    null, 1)
+        ));
+        var stmts = parse("var a = 1; a = 2;");
+        assertInstanceOf(Stmt.Var.class, stmts.get(0));
+        assertInstanceOf(Stmt.Expression.class, stmts.get(1));
+        assertInstanceOf(Expr.Assign.class, ((Stmt.Expression) stmts.get(1)).expression);
+    }
 //
 //    @Test void invalidAssignmentTargetThrows() {
 //        assertThrows(ParseError.class, () -> parse("var a = 1; var b = 2; a + b = 3;"));
