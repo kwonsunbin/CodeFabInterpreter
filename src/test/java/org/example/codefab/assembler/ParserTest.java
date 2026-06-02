@@ -2,7 +2,6 @@ package org.example.codefab.assembler;
 
 import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
-import org.example.codefab.error.ParseError;
 import org.example.codefab.token.Token;
 import org.example.codefab.token.TokenType;
 import org.junit.jupiter.api.Test;
@@ -27,9 +26,9 @@ class ParserTest {
     }
 
 
-    private Expr getOuterStatementOfFirstStatement(String src) {
+    private Expr getOuterStatementOfSelectedStatement(String src, int i) {
         var stmts = parse(src);
-        var print = (Stmt.Print) stmts.getFirst();
+        var print = (Stmt.Print) stmts.get(i);
         return print.expression;
     }
 
@@ -62,7 +61,7 @@ class ParserTest {
                 new Token(TokenType.SEMICOLON, ";",     null, 1),
                 new Token(TokenType.EOF,       "",      null, 1)
         ));
-        var outer = (Expr.Binary) getOuterStatementOfFirstStatement("print 1 + 2 * 3;");
+        var outer = (Expr.Binary) getOuterStatementOfSelectedStatement("print 1 + 2 * 3;", 0);
         assertEquals(TokenType.PLUS, outer.op.type());
         var inner = (Expr.Binary) outer.right;
         assertEquals(TokenType.STAR, inner.op.type());
@@ -81,7 +80,7 @@ class ParserTest {
                 new Token(TokenType.SEMICOLON,   ";",     null, 1),
                 new Token(TokenType.EOF,         "",      null, 1)
         ));
-        var outer = (Expr.Binary) getOuterStatementOfFirstStatement("print (1 + 2) * 3;");
+        var outer = (Expr.Binary) getOuterStatementOfSelectedStatement("print (1 + 2) * 3;", 0);
         assertEquals(TokenType.STAR, outer.op.type());
         assertInstanceOf(Expr.Grouping.class, outer.left);
     }
@@ -99,7 +98,7 @@ class ParserTest {
                 new Token(TokenType.SEMICOLON,   ";",     null, 1),
                 new Token(TokenType.EOF,         "",      null, 1)
         ));
-        var outer = (Expr.Binary) getOuterStatementOfFirstStatement("print 10 - 4 - 3;");
+        var outer = (Expr.Binary) getOuterStatementOfSelectedStatement("print 10 - 4 - 3;", 0);
         assertInstanceOf(Expr.Binary.class, outer.left);
     }
 
@@ -118,18 +117,26 @@ class ParserTest {
                 new Token(TokenType.SEMICOLON,   ";",     null, 1),
                 new Token(TokenType.EOF,         "",      null, 1)
         ));
-        var outer = getOuterStatementOfFirstStatement("print 1 + 2 < 3 + 4;");
+        var outer = getOuterStatementOfSelectedStatement("print 1 + 2 < 3 + 4;", 0);
         assertInstanceOf(Expr.Comparison.class, outer);
     }
-//
-//    @Test void andBindsTighterThanOr() {
-//        // a or b and c → Logical(a, or, Logical(b, and, c))
-//        var stmts = parse("var a = true; var b = true; var c = false; print a or b and c;");
-//        var print = (Stmt.Print) stmts.get(3);
-//        var outer = (Expr.Logical) print.expression;
-//        assertEquals(TokenType.OR, outer.op.type());
-//        assertInstanceOf(Expr.Logical.class, outer.right);
-//    }
+
+    @Test void andBindsTighterThanOr() {
+        // a or b and c → Logical(a, or, Logical(b, and, c))
+        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
+                new Token(TokenType.PRINT,     "print", null, 1),
+                new Token(TokenType.NUMBER,    "1",     1.0,  1),
+                new Token(TokenType.OR,        "or",    null, 1),
+                new Token(TokenType.NUMBER,    "2",     2.0,  1),
+                new Token(TokenType.AND,       "and",   null, 1),
+                new Token(TokenType.NUMBER,    "3",     3.0,  1),
+                new Token(TokenType.SEMICOLON, ";",     null, 1),
+                new Token(TokenType.EOF,       "",      null, 1)
+        ));
+        var outer = (Expr.Logical) getOuterStatementOfSelectedStatement("print 1 or 2 and 3;",0);
+        assertEquals(TokenType.OR, outer.op.type());
+        assertInstanceOf(Expr.Logical.class, outer.right);
+    }
 //
 //    // ── Unary minus ───────────────────────────────────────────────────────────
 //

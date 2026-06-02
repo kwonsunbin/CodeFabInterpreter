@@ -92,11 +92,19 @@ public class Parser {
     }
 
     private Expr or() {
-        return and();
+        Expr expr = and();
+        while (match(TokenType.OR)) {
+            expr = new Expr.Logical(expr, previous(), and());
+        }
+        return expr;
     }
 
     private Expr and() {
-        return comparison();
+        Expr expr = comparison();
+        while (match(TokenType.AND)) {
+            expr = new Expr.Logical(expr, previous(), comparison());
+        }
+        return expr;
     }
 
     /** comparison = term ( ( > | < ) term )* */
