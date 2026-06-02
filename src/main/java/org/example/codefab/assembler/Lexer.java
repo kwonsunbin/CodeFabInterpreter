@@ -64,7 +64,9 @@ public class Lexer {
             case '=' -> addToken(TokenType.EQUAL);
             case ' ', '\r', '\t' -> { /* ignore whitespace */ }
             default -> {
-                if (isAlpha(c)) {
+                if (isDigit(c)) {
+                    number();
+                } else if (isAlpha(c)) {
                     identifier();
                 } else {
                     throw new UnsupportedOperationException("TODO: more cases");
@@ -78,7 +80,13 @@ public class Lexer {
     }
 
     private void number() {
-        throw new UnsupportedOperationException("TODO: implement number");
+        while (!isAtEnd() && isDigit(peek())) advance();
+        if (!isAtEnd() && peek() == '.' && isDigit(peekNext())) {
+            advance(); // consume '.'
+            while (!isAtEnd() && isDigit(peek())) advance();
+        }
+        double value = Double.parseDouble(source.substring(start, current));
+        addToken(TokenType.NUMBER, value);
     }
 
     private void identifier() {
