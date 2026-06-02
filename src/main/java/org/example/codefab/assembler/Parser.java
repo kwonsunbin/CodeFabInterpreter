@@ -113,6 +113,9 @@ public class Parser {
 
     /** unary = - unary | primary */
     private Expr unary() {
+        if (match(TokenType.MINUS)) {
+            return new Expr.Unary(previous(), unary());
+        }
         return primary();
     }
 
