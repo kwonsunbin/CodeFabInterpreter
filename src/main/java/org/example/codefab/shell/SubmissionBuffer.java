@@ -22,11 +22,33 @@ public class SubmissionBuffer {
 
     /** Returns true when parentheses and braces are balanced (not inside a string). */
     public boolean isComplete() {
-        // TODO: walk buffer char by char tracking parenDepth, braceDepth, inString
-        //       return true when balanced (or negative depth = stray delimiter)
-        throw new UnsupportedOperationException("TODO: implement isComplete");
+        boolean inString   = false;
+        int     parenDepth = 0;
+        int     braceDepth = 0;
+
+        for (int i = 0; i < buffer.length(); i++) {
+            char c = buffer.charAt(i);
+            if (inString) {
+                if (c == '"') inString = false;
+                continue;
+            }
+            switch (c) {
+                case '"' -> inString = true;
+                case '(' -> parenDepth++;
+                case ')' -> { parenDepth--; if (parenDepth < 0) return true; }
+                case '{' -> braceDepth++;
+                case '}' -> { braceDepth--; if (braceDepth < 0) return true; }
+            }
+        }
+
+        return !inString && parenDepth <= 0 && braceDepth <= 0;
     }
 
-    public String text()  { return buffer.toString(); }
-    public void   clear() { buffer.setLength(0); }
+    public String text()  {
+        return buffer.toString();
+    }
+
+    public void   clear() {
+        buffer.setLength(0);
+    }
 }
