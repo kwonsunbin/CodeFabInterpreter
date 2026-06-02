@@ -28,16 +28,19 @@ public class Parser {
     }
 
     public List<Stmt> parse() {
-        // TODO: loop until EOF, collecting statements
-        throw new UnsupportedOperationException("TODO: implement parse");
+        List<Stmt> statements = new ArrayList<>();
+        while (!isAtEnd()) {
+            statements.add(statement());
+        }
+        return statements;
     }
 
     // ── Statements ────────────────────────────────────────────────────────────
 
     private Stmt statement() {
-        // TODO: dispatch to varDeclaration / ifStatement / forStatement /
-        //       printStatement / block / expressionStatement
-        throw new UnsupportedOperationException("TODO: implement statement");
+        if (match(TokenType.PRINT)) return printStatement();
+        // TODO: var / if / for / block / expressionStatement
+        throw new UnsupportedOperationException("TODO: implement remaining statements");
     }
 
     /** var IDENTIFIER ( = expression )? ; */
@@ -60,8 +63,9 @@ public class Parser {
 
     /** print expression ; */
     private Stmt printStatement() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement printStatement");
+        Expr value = expression();
+        consume(TokenType.SEMICOLON, "Expect ';' after value.");
+        return new Stmt.Print(value);
     }
 
     /** { statement* } — caller must have already consumed LEFT_BRACE */
@@ -84,48 +88,50 @@ public class Parser {
 
     /** assignment = IDENTIFIER = assignment | logic_or  (right-associative) */
     private Expr assignment() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement assignment");
+        return or();
     }
 
     private Expr or() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement or");
+        return and();
     }
 
     private Expr and() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement and");
+        return comparison();
     }
 
     /** comparison = term ( ( > | < ) term )* */
     private Expr comparison() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement comparison");
+        return term();
     }
 
     /** term = factor ( ( + | - ) factor )* */
     private Expr term() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement term");
+        Expr expr = factor();
+        while (match(TokenType.PLUS, TokenType.MINUS)) {
+            expr = new Expr.Binary(expr, previous(), factor());
+        }
+        return expr;
     }
 
     /** factor = unary ( ( * | / ) unary )* */
     private Expr factor() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement factor");
+        Expr expr = unary();
+        while (match(TokenType.STAR, TokenType.SLASH)) {
+            expr = new Expr.Binary(expr, previous(), unary());
+        }
+        return expr;
     }
 
     /** unary = - unary | primary */
     private Expr unary() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement unary");
+        return primary();
     }
 
     /** primary = NUMBER | STRING | true | false | IDENTIFIER | ( expression ) */
     private Expr primary() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement primary");
+        if (match(TokenType.NUMBER)) return new Expr.Literal(previous().value());
+        // TODO: STRING / true / false / IDENTIFIER / grouping
+        throw new ParseError(peek().line(), "Expect expression.");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
