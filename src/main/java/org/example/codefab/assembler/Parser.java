@@ -8,6 +8,7 @@ import org.example.codefab.token.TokenType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Assembler Step 2: Recursive-descent parser.
@@ -82,6 +83,19 @@ public class Parser {
 
     // ── Expressions (precedence: low → high) ──────────────────────────────────
 
+    @FunctionalInterface
+    interface NodeBuilder {
+        Expr build(Expr left, Token op, Expr right);
+    }
+
+    private Expr leftAssoc(Supplier<Expr> operand, NodeBuilder builder, TokenType... ops) {
+        Expr expr = operand.get();
+        while (match(ops)) {
+            expr = builder.build(expr, previous(), operand.get());
+        }
+        return expr;
+    }
+
     private Expr expression() {
         return assignment();
     }
@@ -91,48 +105,11 @@ public class Parser {
         return or();
     }
 
-    private Expr or() {
-        Expr expr = and();
-        while (match(TokenType.OR)) {
-            expr = new Expr.Logical(expr, previous(), and());
-        }
-        return expr;
-    }
-
-    private Expr and() {
-        Expr expr = comparison();
-        while (match(TokenType.AND)) {
-            expr = new Expr.Logical(expr, previous(), comparison());
-        }
-        return expr;
-    }
-
-    /** comparison = term ( ( > | < ) term )* */
-    private Expr comparison() {
-        Expr expr = term();
-        while (match(TokenType.GREATER, TokenType.LESS)) {
-            expr = new Expr.Comparison(expr, previous(), term());
-        }
-        return expr;
-    }
-
-    /** term = factor ( ( + | - ) factor )* */
-    private Expr term() {
-        Expr expr = factor();
-        while (match(TokenType.PLUS, TokenType.MINUS)) {
-            expr = new Expr.Binary(expr, previous(), factor());
-        }
-        return expr;
-    }
-
-    /** factor = unary ( ( * | / ) unary )* */
-    private Expr factor() {
-        Expr expr = unary();
-        while (match(TokenType.STAR, TokenType.SLASH)) {
-            expr = new Expr.Binary(expr, previous(), unary());
-        }
-        return expr;
-    }
+    private Expr or()         { return leftAssoc(this::and,        Expr.Logical::new,    TokenType.OR); }
+    private Expr and()        { return leftAssoc(this::comparison, Expr.Logical::new,    TokenType.AND); }
+    private Expr comparison() { return leftAssoc(this::term,       Expr.Comparison::new, TokenType.GREATER, TokenType.LESS); }
+    private Expr term()       { return leftAssoc(this::factor,     Expr.Binary::new,     TokenType.PLUS,    TokenType.MINUS); }
+    private Expr factor()     { return leftAssoc(this::unary,      Expr.Binary::new,     TokenType.STAR,    TokenType.SLASH); }
 
     /** unary = - unary | primary */
     private Expr unary() {
