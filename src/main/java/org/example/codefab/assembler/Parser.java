@@ -130,7 +130,12 @@ public class Parser {
     /** primary = NUMBER | STRING | true | false | IDENTIFIER | ( expression ) */
     private Expr primary() {
         if (match(TokenType.NUMBER)) return new Expr.Literal(previous().value());
-        // TODO: STRING / true / false / IDENTIFIER / grouping
+        if (match(TokenType.LEFT_PAREN)) {
+            Expr expr = expression();
+            consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
+            return new Expr.Grouping(expr);
+        }
+        // TODO: STRING / true / false / IDENTIFIER
         throw new ParseError(peek().line(), "Expect expression.");
     }
 

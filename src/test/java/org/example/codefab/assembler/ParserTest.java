@@ -6,25 +6,24 @@ import org.example.codefab.error.ParseError;
 import org.example.codefab.token.Token;
 import org.example.codefab.token.TokenType;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@ExtendWith(MockitoExtension.class)
 class ParserTest {
 
     @Mock
     Lexer lexer;
 
-
-    private List<Stmt> parse(List<Token> tokens) {
-        Lexer lexer = Mockito.mock(Lexer.class);
-        Mockito.when(lexer.scanTokens()).thenReturn(tokens);
-        return new Assembler(lexer).assemble("");
+    private List<Stmt> parse(String src) {
+        return new Assembler(lexer).assemble(src);
     }
 
     // ── Architecture rule: Expr must never contain a Stmt field ──────────────
@@ -45,7 +44,7 @@ class ParserTest {
 
     @Test void multiplicationBeforeAddition() {
         // 1 + 2 * 3  →  Binary(1, +, Binary(2, *, 3))
-        var tokens = List.of(
+        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
                 new Token(TokenType.PRINT,     "print", null, 1),
                 new Token(TokenType.NUMBER,    "1",     1.0,  1),
                 new Token(TokenType.PLUS,      "+",     null, 1),
@@ -54,23 +53,35 @@ class ParserTest {
                 new Token(TokenType.NUMBER,    "3",     3.0,  1),
                 new Token(TokenType.SEMICOLON, ";",     null, 1),
                 new Token(TokenType.EOF,       "",      null, 1)
-        );
-        var stmts = parse(tokens);
+        ));
+        var stmts = parse("print 1 + 2 * 3;");
         var print = (Stmt.Print) stmts.getFirst();
         var outer = (Expr.Binary) print.expression;
         assertEquals(TokenType.PLUS, outer.op.type());
         var inner = (Expr.Binary) outer.right;
         assertEquals(TokenType.STAR, inner.op.type());
     }
-//
-//    @Test void groupingOverridesPrecedence() {
-//        // (1 + 2) * 3
-//        var stmts = parse("print (1 + 2) * 3;");
-//        var print = (Stmt.Print) stmts.get(0);
-//        var outer = (Expr.Binary) print.expression;
-//        assertEquals(TokenType.STAR, outer.op.type());
-//        assertInstanceOf(Expr.Grouping.class, outer.left);
-//    }
+
+    @Test void groupingOverridesPrecedence() {
+        // print (1 + 2) * 3;  →  Binary(Grouping(Binary(1,+,2)), *, 3)
+        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
+                new Token(TokenType.PRINT,       "print", null, 1),
+                new Token(TokenType.LEFT_PAREN,  "(",     null, 1),
+                new Token(TokenType.NUMBER,      "1",     1.0,  1),
+                new Token(TokenType.PLUS,        "+",     null, 1),
+                new Token(TokenType.NUMBER,      "2",     2.0,  1),
+                new Token(TokenType.RIGHT_PAREN, ")",     null, 1),
+                new Token(TokenType.STAR,        "*",     null, 1),
+                new Token(TokenType.NUMBER,      "3",     3.0,  1),
+                new Token(TokenType.SEMICOLON,   ";",     null, 1),
+                new Token(TokenType.EOF,         "",      null, 1)
+        ));
+        var stmts = parse("print (1 + 2) * 3;");
+        var print = (Stmt.Print) stmts.get(0);
+        var outer = (Expr.Binary) print.expression;
+        assertEquals(TokenType.STAR, outer.op.type());
+        assertInstanceOf(Expr.Grouping.class, outer.left);
+    }
 //
 //    @Test void leftAssociativity() {
 //        // 10 - 4 - 3 → Binary(Binary(10, -, 4), -, 3)
