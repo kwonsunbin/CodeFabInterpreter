@@ -8,7 +8,12 @@ public enum TokenType {
     PLUS, MINUS, STAR, SLASH,
 
     // Assignment / comparison operators
-    EQUAL, GREATER, LESS,
+    EQUAL, EQUAL_EQUAL,
+    GREATER, GREATER_EQUAL,
+    LESS, LESS_EQUAL,
+
+    // Unary operators
+    BANG, BANG_EQUAL,
 
     // Logical operators (keyword-style)
     AND, OR,
