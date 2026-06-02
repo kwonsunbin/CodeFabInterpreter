@@ -85,14 +85,23 @@ class ParserTest {
         assertEquals(TokenType.STAR, outer.op.type());
         assertInstanceOf(Expr.Grouping.class, outer.left);
     }
-//
-//    @Test void leftAssociativity() {
-//        // 10 - 4 - 3 → Binary(Binary(10, -, 4), -, 3)
-//        var stmts = parse("print 10 - 4 - 3;");
-//        var print = (Stmt.Print) stmts.get(0);
-//        var outer = (Expr.Binary) print.expression;
-//        assertInstanceOf(Expr.Binary.class, outer.left);
-//    }
+
+    @Test void leftAssociativity() {
+        // 10 - 4 - 3 → Binary(Binary(10, -, 4), -, 3)
+
+        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
+                new Token(TokenType.PRINT,       "print", null, 1),
+                new Token(TokenType.NUMBER,  "10",     10.0, 1),
+                new Token(TokenType.MINUS,      "-",     null,  1),
+                new Token(TokenType.NUMBER,        "4",     4.0, 1),
+                new Token(TokenType.MINUS,      "-",     null,  1),
+                new Token(TokenType.NUMBER, "3",     null, 1),
+                new Token(TokenType.SEMICOLON,   ";",     null, 1),
+                new Token(TokenType.EOF,         "",      null, 1)
+        ));
+        var outer = getOuterStatementOfFirstStatement("print 10 - 4 - 3;");
+        assertInstanceOf(Expr.Binary.class, outer.left);
+    }
 //
 //    @Test void comparisonBindsLooserThanTerm() {
 //        // 1 + 2 < 3 + 4  →  Comparison(Binary(1,+,2), <, Binary(3,+,4))
