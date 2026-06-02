@@ -148,18 +148,23 @@ class ParserTest {
             new Token(TokenType.SEMICOLON, ";",     null, 1),
             new Token(TokenType.EOF,       "",      null, 1)
         ));
-        var stmts = parse("print -5;");
-        var print = (Stmt.Print) stmts.get(0);
-        assertInstanceOf(Expr.Unary.class, print.expression);
+        var outer = (Expr.Unary) getOuterStatementOfSelectedStatement("print -5;",0);
+        assertInstanceOf(Expr.Unary.class, outer);
     }
-//
-//    @Test void doubleUnaryMinus() {
-//        var stmts = parse("print - -5;");
-//        var print = (Stmt.Print) stmts.get(0);
-//        var outer = (Expr.Unary) print.expression;
-//        assertInstanceOf(Expr.Unary.class, outer.operand);
-//    }
-//
+
+    @Test void doubleUnaryMinus() {
+        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
+                new Token(TokenType.PRINT,     "print", null, 1),
+                new Token(TokenType.MINUS,     "-",     null, 1),
+                new Token(TokenType.MINUS,     "-",     null, 1),
+                new Token(TokenType.NUMBER,    "5",     5.0,  1),
+                new Token(TokenType.SEMICOLON, ";",     null, 1),
+                new Token(TokenType.EOF,       "",      null, 1)
+        ));
+        var outer = (Expr.Unary) getOuterStatementOfSelectedStatement("print -5;",0);
+        assertInstanceOf(Expr.Unary.class, outer.operand);
+    }
+
 //    // ── Assignment ────────────────────────────────────────────────────────────
 //
 //    @Test void validAssignment() {
