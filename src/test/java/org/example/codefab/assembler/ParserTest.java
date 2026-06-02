@@ -102,13 +102,31 @@ class ParserTest {
         var outer = getOuterStatementOfFirstStatement("print 10 - 4 - 3;");
         assertInstanceOf(Expr.Binary.class, outer.left);
     }
-//
-//    @Test void comparisonBindsLooserThanTerm() {
-//        // 1 + 2 < 3 + 4  →  Comparison(Binary(1,+,2), <, Binary(3,+,4))
-//        var stmts = parse("print 1 + 2 < 3 + 4;");
-//        var print = (Stmt.Print) stmts.get(0);
-//        assertInstanceOf(Expr.Comparison.class, print.expression);
-//    }
+
+    @Test void comparisonBindsLooserThanTerm() {
+        // 1 + 2 < 3 + 4  →  Comparison(Binary(1,+,2), <, Binary(3,+,4))
+
+        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
+                new Token(TokenType.PRINT,       "print", null, 1),
+                new Token(TokenType.LEFT_PAREN,       "(", null, 1),
+                new Token(TokenType.NUMBER,  "1",     1.0, 1),
+                new Token(TokenType.PLUS,      "+",     null,  1),
+                new Token(TokenType.NUMBER,        "2",     2.0, 1),
+                new Token(TokenType.RIGHT_PAREN,       ")", null, 1),
+                new Token(TokenType.LESS,      "<",     null,  1),
+                new Token(TokenType.LEFT_PAREN,       "(", null, 1),
+                new Token(TokenType.NUMBER, "3",     3.0, 1),
+                new Token(TokenType.PLUS,      "+",     null,  1),
+                new Token(TokenType.NUMBER,        "4",     4.0, 1),
+                new Token(TokenType.RIGHT_PAREN,       ")", null, 1),
+                new Token(TokenType.SEMICOLON,   ";",     null, 1),
+                new Token(TokenType.EOF,         "",      null, 1)
+        ));
+        var stmts = parse("print 1 + 2 < 3 + 4;");
+        var print = (Stmt.Print) stmts.get(0);
+
+        assertInstanceOf(Expr.Comparison.class, print.expression);
+    }
 //
 //    @Test void andBindsTighterThanOr() {
 //        // a or b and c → Logical(a, or, Logical(b, and, c))

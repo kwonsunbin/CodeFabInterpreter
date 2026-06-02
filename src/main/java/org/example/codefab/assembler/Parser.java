@@ -101,7 +101,11 @@ public class Parser {
 
     /** comparison = term ( ( > | < ) term )* */
     private Expr comparison() {
-        return term();
+        Expr expr = term();
+        while (match(TokenType.GREATER, TokenType.LESS)) {
+            expr = new Expr.Comparison(expr, previous(), term());
+        }
+        return expr;
     }
 
     /** term = factor ( ( + | - ) factor )* */
