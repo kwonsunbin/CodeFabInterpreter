@@ -36,13 +36,11 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
         result = new CheckResult();
         if (scopes.isEmpty()) scopes.push(globalScope);
 
-        for (int i = 0; i < program.size(); i++) {
-            Stmt stmt = program.get(i);
+        for (Stmt stmt : program) {
             execute(stmt);
         }
 
         return result;
-
     }
 
     // ── Scope management ─────────────────────────────────────────────────────
@@ -59,16 +57,13 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
      * Phase 1 of two-phase declare/define: marks name as DECLARING.
      */
     private void declare(Token name) {
-        // TODO: check for duplicate, then scope.declare()
-        Scope scope = scopes.isEmpty() ? globalScope :
-                scopes.peek();
+        Scope scope = scopes.peek();
 
         if (scope.has(name.origin())) {
             result.addError(name.line(), "Already a variable with this name in this scope.");
             return;
         }
         scope.declare(name.origin());
-//        throw new UnsupportedOperationException("TODO: implement declare");
     }
 
     /**
@@ -82,53 +77,55 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
 
     @Override
     public Void visitVar(Stmt.Var stmt) {
-        // TODO: two-phase declare → evaluate initializer → define
         declare(stmt.name);
         if (stmt.initializer != null) evaluate(stmt.initializer);
         define(stmt.name);
         return null;
-//        throw new UnsupportedOperationException("TODO: implement visitVar");
     }
 
     @Override
     public Void visitIf(Stmt.If stmt) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitIf");
+        evaluate(stmt.condition);
+        execute(stmt.thenBranch);
+        if (stmt.elseBranch != null) execute(stmt.elseBranch);
+        return null;
     }
 
     @Override
     public Void visitFor(Stmt.For stmt) {
-        // TODO: open scope for for-init, walk all clauses and body, close scope
-        throw new UnsupportedOperationException("TODO: implement visitFor");
+        beginScope();
+        if (stmt.initializer != null) execute(stmt.initializer);
+        if (stmt.condition   != null) evaluate(stmt.condition);
+        if (stmt.increment   != null) evaluate(stmt.increment);
+        execute(stmt.body);
+        endScope();
+        return null;
     }
 
     @Override
     public Void visitPrint(Stmt.Print stmt) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitPrint");
+        evaluate(stmt.expression);
+        return null;
     }
 
     @Override
     public Void visitBlock(Stmt.Block stmt) {
-        // TODO: beginScope, walk statements, endScope
         beginScope();
         for (Stmt s : stmt.statements) execute(s);
         endScope();
         return null;
-//        throw new UnsupportedOperationException("TODO: implement visitBlock");
     }
 
     @Override
     public Void visitExpression(Stmt.Expression stmt) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitExpression");
+        evaluate(stmt.expression);
+        return null;
     }
 
     // ── Expression visitors (DFS) ─────────────────────────────────────────────
 
     @Override
     public Void visitVariable(Expr.Variable expr) {
-        // TODO: detect self-reference (DECLARING state in current scope)
         // Self-reference check: if the name is DECLARING in the current scope,
         // the variable's own initializer is referencing it before it's defined.
         Scope current = scopes.peek();
@@ -138,37 +135,39 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
                     "Can't read local variable in initializer.");
         }
         return null;
-//        throw new UnsupportedOperationException("TODO: implement visitVariable");
     }
 
     @Override
     public Void visitBinary(Expr.Binary expr) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitBinary");
+        evaluate(expr.left);
+        evaluate(expr.right);
+        return null;
     }
 
     @Override
     public Void visitLogical(Expr.Logical expr) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitLogical");
+        evaluate(expr.left);
+        evaluate(expr.right);
+        return null;
     }
 
     @Override
     public Void visitComparison(Expr.Comparison expr) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitComparison");
+        evaluate(expr.left);
+        evaluate(expr.right);
+        return null;
     }
 
     @Override
     public Void visitUnary(Expr.Unary expr) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitUnary");
+        evaluate(expr.operand);
+        return null;
     }
 
     @Override
     public Void visitGrouping(Expr.Grouping expr) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitGrouping");
+        evaluate(expr.expression);
+        return null;
     }
 
     @Override
@@ -178,8 +177,8 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
 
     @Override
     public Void visitAssign(Expr.Assign expr) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitAssign");
+        evaluate(expr.value);
+        return null;
     }
 
     // ── Internal dispatch ─────────────────────────────────────────────────────
