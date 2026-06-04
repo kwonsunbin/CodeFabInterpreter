@@ -20,7 +20,7 @@ import java.util.List;
  * To add new rules: implement the relevant visitXxx methods and call
  * result.addError() / result.addWarning() as needed.
  */
-public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
+public class Checker implements Stmt.Visitor<Void> {
 
     // Persistent global scope — survives across REPL submissions so
     // previously declared globals are visible and re-declaration is caught.
@@ -78,14 +78,14 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
     @Override
     public Void visitVar(Stmt.Var stmt) {
         declare(stmt.name);
-        if (stmt.initializer != null) evaluate(stmt.initializer);
+        if (stmt.initializer != null) scanExpr(stmt.initializer);
         define(stmt.name);
         return null;
     }
 
     @Override
     public Void visitIf(Stmt.If stmt) {
-        evaluate(stmt.condition);
+        scanExpr(stmt.condition);
         execute(stmt.thenBranch);
         if (stmt.elseBranch != null) execute(stmt.elseBranch);
         return null;
@@ -95,8 +95,8 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
     public Void visitFor(Stmt.For stmt) {
         beginScope();
         if (stmt.initializer != null) execute(stmt.initializer);
-        if (stmt.condition   != null) evaluate(stmt.condition);
-        if (stmt.increment   != null) evaluate(stmt.increment);
+        if (stmt.condition   != null) scanExpr(stmt.condition);
+        if (stmt.increment   != null) scanExpr(stmt.increment);
         execute(stmt.body);
         endScope();
         return null;
@@ -104,7 +104,7 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
 
     @Override
     public Void visitPrint(Stmt.Print stmt) {
-        evaluate(stmt.expression);
+        scanExpr(stmt.expression);
         return null;
     }
 
@@ -118,76 +118,36 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
 
     @Override
     public Void visitExpression(Stmt.Expression stmt) {
-        evaluate(stmt.expression);
+        scanExpr(stmt.expression);
         return null;
     }
 
-    // ── Expression visitors (DFS) ─────────────────────────────────────────────
+    // ── Expression scanner ────────────────────────────────────────────────────
+    // Walks expression subtrees only to enforce variable-scope rules.
+    // No runtime evaluation is performed here.
 
-    @Override
-    public Void visitVariable(Expr.Variable expr) {
-        // Self-reference check: if the name is DECLARING in the current scope,
-        // the variable's own initializer is referencing it before it's defined.
-        Scope current = scopes.peek();
-        if (current.has(expr.name.origin())
-                && current.state(expr.name.origin()) == Scope.State.DECLARING) {
-            result.addError(expr.name.line(),
-                    "Can't read local variable in initializer.");
+    private void scanExpr(Expr expr) {
+        switch (expr) {
+            case Expr.Variable v -> {
+                Scope current = scopes.peek();
+                if (current.has(v.name.origin())
+                        && current.state(v.name.origin()) == Scope.State.DECLARING) {
+                    result.addError(v.name.line(), "Can't read local variable in initializer.");
+                }
+            }
+            case Expr.Binary b     -> { scanExpr(b.left); scanExpr(b.right); }
+            case Expr.Logical l    -> { scanExpr(l.left); scanExpr(l.right); }
+            case Expr.Comparison c -> { scanExpr(c.left); scanExpr(c.right); }
+            case Expr.Unary u      -> scanExpr(u.operand);
+            case Expr.Grouping g   -> scanExpr(g.expression);
+            case Expr.Assign a     -> scanExpr(a.value);
+            case Expr.Literal ignored -> {}
         }
-        return null;
-    }
-
-    @Override
-    public Void visitBinary(Expr.Binary expr) {
-        evaluate(expr.left);
-        evaluate(expr.right);
-        return null;
-    }
-
-    @Override
-    public Void visitLogical(Expr.Logical expr) {
-        evaluate(expr.left);
-        evaluate(expr.right);
-        return null;
-    }
-
-    @Override
-    public Void visitComparison(Expr.Comparison expr) {
-        evaluate(expr.left);
-        evaluate(expr.right);
-        return null;
-    }
-
-    @Override
-    public Void visitUnary(Expr.Unary expr) {
-        evaluate(expr.operand);
-        return null;
-    }
-
-    @Override
-    public Void visitGrouping(Expr.Grouping expr) {
-        evaluate(expr.expression);
-        return null;
-    }
-
-    @Override
-    public Void visitLiteral(Expr.Literal expr) {
-        return null;
-    }
-
-    @Override
-    public Void visitAssign(Expr.Assign expr) {
-        evaluate(expr.value);
-        return null;
     }
 
     // ── Internal dispatch ─────────────────────────────────────────────────────
 
     private void execute(Stmt stmt) {
         stmt.accept(this);
-    }
-
-    private void evaluate(Expr expr) {
-        expr.accept(this);
     }
 }
