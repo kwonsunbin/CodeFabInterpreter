@@ -272,4 +272,146 @@ class EndToEndTest {
         assertTrue(result.hasRuntimeError());
         assertTrue(result.runtimeError().contains("Operand must be a number"));
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 3. 심화 테스트 — Advanced scenarios
+    // ════════════════════════════════════════════════════════════════════════
+
+    // ── Complex arithmetic ────────────────────────────────────────────────────
+
+    @Test void complexArithmeticPrecedence() {
+        // 2 + 3 * 4 - 6 / 2 = 2 + 12 - 3 = 11
+        assertEquals("11", run("print 2 + 3 * 4 - 6 / 2;").stdout());
+    }
+
+    @Test void nestedGrouping() {
+        // (2 + 3) * (4 - 1) = 5 * 3 = 15
+        assertEquals("15", run("print (2 + 3) * (4 - 1);").stdout());
+    }
+
+    // ── Logical operators (short-circuit) ─────────────────────────────────────
+
+    @Test void logicalAndBothTrue() {
+        assertEquals("yes", run("if (1 < 2 and 3 < 4) { print \"yes\"; } else { print \"no\"; }").stdout());
+    }
+
+    @Test void logicalAndFirstFalse_shortCircuit() {
+        assertEquals("no", run("if (1 > 2 and 3 < 4) { print \"yes\"; } else { print \"no\"; }").stdout());
+    }
+
+    @Test void logicalOrFirstTrue_shortCircuit() {
+        assertEquals("yes", run("if (1 < 2 or 1 > 2) { print \"yes\"; } else { print \"no\"; }").stdout());
+    }
+
+    @Test void logicalOrBothFalse() {
+        assertEquals("no", run("if (1 > 2 or 3 > 4) { print \"yes\"; } else { print \"no\"; }").stdout());
+    }
+
+    // ── Complex scope scenarios ───────────────────────────────────────────────
+
+    @Test void tripleNestedScopeShadowing() {
+        // 각 scope마다 다른 x 값
+        String src = "var x = 1; { var x = 2; { var x = 3; print x; } print x; } print x;";
+        assertEquals("3\n2\n1", run(src).stdout());
+    }
+
+    @Test void modifyOuterFromDeepNestedScope() {
+        // 3단계 중첩에서 전역 변수 수정
+        String src = "var total = 0; { { { total = total + 10; } } } print total;";
+        assertEquals("10", run(src).stdout());
+    }
+
+    // ── Complex for loop ──────────────────────────────────────────────────────
+
+    @Test void forLoopComputesSum() {
+        // 0 + 1 + 2 + 3 + 4 = 10
+        String src = "var sum = 0; for (var i = 0; i < 5; i = i + 1) { sum = sum + i; } print sum;";
+        assertEquals("10", run(src).stdout());
+    }
+
+    @Test void nestedForLoops() {
+        // 3 * 3 = 9 반복
+        String src = "var count = 0; for (var i = 0; i < 3; i = i + 1) { for (var j = 0; j < 3; j = j + 1) { count = count + 1; } } print count;";
+        assertEquals("9", run(src).stdout());
+    }
+
+    @Test void forLoopZeroIterations() {
+        // 조건이 처음부터 false → body 실행 안 됨
+        assertEquals("done", run("for (var i = 0; i < 0; i = i + 1) { print i; } print \"done\";").stdout());
+    }
+
+    @Test void forBodyVarShadowsInitVar() {
+        // body 안의 i(99)는 init의 i(0, 1)와 별도 scope
+        String src = "for (var i = 0; i < 2; i = i + 1) { var i = 99; print i; }";
+        assertEquals("99\n99", run(src).stdout());
+    }
+
+    @Test void stringConcatBuildInLoop() {
+        String src = "var s = \"\"; for (var i = 0; i < 3; i = i + 1) { s = s + \"x\"; } print s;";
+        assertEquals("xxx", run(src).stdout());
+    }
+
+    // ── if-else chain ─────────────────────────────────────────────────────────
+
+    @Test void ifElseChain() {
+        // else { if ... } 로 else-if 구조 표현
+        String src = "var x = 5; if (x < 3) { print \"low\"; } else { if (x < 7) { print \"mid\"; } else { print \"high\"; } }";
+        assertEquals("mid", run(src).stdout());
+    }
+
+    // ── Edge cases ────────────────────────────────────────────────────────────
+
+    @Test void uninitializedVarIsNil() {
+        assertEquals("nil", run("var a; print a;").stdout());
+    }
+
+    @Test void assignmentExpressionReturnsValue() {
+        // assignment은 expression이라 값을 반환함
+        assertEquals("42", run("var a; print a = 42;").stdout());
+    }
+
+    // ── REPL session (complex) ────────────────────────────────────────────────
+
+    @Test void replSessionWithLoop() {
+        // 1 + 2 + 3 = 6
+        String out = runSession(
+                "var result = 0;",
+                "for (var i = 1; i < 4; i = i + 1) { result = result + i; }",
+                "print result;"
+        );
+        assertEquals("6", out);
+    }
+
+    // ── Additional runtime errors ─────────────────────────────────────────────
+
+    @Test void divisionByZero_runtimeError() {
+        var result = run("print 10 / 0;");
+        assertTrue(result.hasRuntimeError());
+        assertTrue(result.runtimeError().contains("Division by zero"));
+    }
+
+    @Test void variableOutOfScope_runtimeError() {
+        // 블록 안에서 선언된 변수는 블록 밖에서 접근 불가
+        var result = run("{ var a = 1; } print a;");
+        assertTrue(result.hasRuntimeError());
+        assertTrue(result.runtimeError().contains("Undefined variable 'a'"));
+    }
+
+    @Test void assignUndefinedVariable_runtimeError() {
+        var result = run("a = 5;");
+        assertTrue(result.hasRuntimeError());
+        assertTrue(result.runtimeError().contains("Undefined variable 'a'"));
+    }
+
+    @Test void subtractStrings_runtimeError() {
+        var result = run("print \"a\" - \"b\";");
+        assertTrue(result.hasRuntimeError());
+        assertTrue(result.runtimeError().contains("Operands must be numbers"));
+    }
+
+    @Test void compareNonNumbers_runtimeError() {
+        var result = run("print \"a\" < \"b\";");
+        assertTrue(result.hasRuntimeError());
+        assertTrue(result.runtimeError().contains("Operands must be numbers"));
+    }
 }
