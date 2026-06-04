@@ -75,6 +75,18 @@ class ParserTest {
     }
 
     @Test
+    void greaterEqualProducesComparisonNode() {
+        var cmp = (Expr.Comparison) getStatement("print 3 >= 3;", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.GREATER_EQUAL, cmp.op.type());
+    }
+
+    @Test
+    void lessEqualProducesComparisonNode() {
+        var cmp = (Expr.Comparison) getStatement("print 2 <= 5;", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.LESS_EQUAL, cmp.op.type());
+    }
+
+    @Test
     void andBindsTighterThanOr() {
         // a or b and c → Logical(a, or, Logical(b, and, c))
         var outer = (Expr.Logical) getStatement("print 1 or 2 and 3;", 0, Stmt.Print.class).expression;
@@ -82,7 +94,7 @@ class ParserTest {
         assertInstanceOf(Expr.Logical.class, outer.right);
     }
 
-    // ── Unary minus ───────────────────────────────────────────────────────────
+    // ── Unary minus / bang ────────────────────────────────────────────────────
 
     @Test
     void unaryMinusProducesUnaryNode() {
@@ -94,6 +106,27 @@ class ParserTest {
     void doubleUnaryMinus() {
         var outer = (Expr.Unary) getStatement("print --5;", 0, Stmt.Print.class).expression;
         assertInstanceOf(Expr.Unary.class, outer.operand);
+    }
+
+    @Test
+    void unaryBangProducesUnaryNode() {
+        var unary = (Expr.Unary) getStatement("print !true;", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.BANG, unary.op.type());
+        assertInstanceOf(Expr.Literal.class, unary.operand);
+    }
+
+    @Test
+    void doubleUnaryBang() {
+        var outer = (Expr.Unary) getStatement("print !!false;", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.BANG, outer.op.type());
+        assertInstanceOf(Expr.Unary.class, outer.operand);
+    }
+
+    @Test
+    void bangOnGrouping() {
+        var unary = (Expr.Unary) getStatement("print !(1 < 2);", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.BANG, unary.op.type());
+        assertInstanceOf(Expr.Grouping.class, unary.operand);
     }
 
     // ── String literal ───────────────────────────────────────────────────────

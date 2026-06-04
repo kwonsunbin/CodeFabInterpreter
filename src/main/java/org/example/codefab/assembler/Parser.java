@@ -145,7 +145,9 @@ public class Parser {
     }
 
     private Expr comparison() {
-        return leftAssoc(this::term, Expr.Comparison::new, TokenType.GREATER, TokenType.LESS);
+        return leftAssoc(this::term, Expr.Comparison::new,
+                TokenType.GREATER, TokenType.GREATER_EQUAL,
+                TokenType.LESS, TokenType.LESS_EQUAL);
     }
 
     private Expr term() {
@@ -157,7 +159,7 @@ public class Parser {
     }
 
     private Expr unary() {
-        if (match(TokenType.MINUS)) return new Expr.Unary(previous(), unary());
+        if (match(TokenType.MINUS, TokenType.BANG)) return new Expr.Unary(previous(), unary());
         return primary();
     }
 
