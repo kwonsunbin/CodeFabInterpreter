@@ -17,15 +17,13 @@ public class Logger {
 
     public void setVerbose(boolean verbose) { this.verbose = verbose; }
 
-    public void executionStart()    { /* TODO */ }
-    public void executionComplete() { /* TODO */ }
+    public void executionStart()    { if (verbose) err("[exec] start"); }
+    public void executionComplete() { if (verbose) err("[exec] done");  }
 
     /** Always prints error diagnostics to stderr. */
-    public void error(CodeFabError e) {
-        // TODO
-    }
+    public void error(CodeFabError e) { err(e.userMessage()); }
 
-    public void diagnostic(String msg) { /* TODO */ }
+    public void diagnostic(String msg) { if (verbose) err(msg); }
 
     private void err(String msg) { System.err.println(msg); }
 }

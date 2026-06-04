@@ -125,7 +125,7 @@ public class Lexer {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private char advance()  { return source.charAt(current++); }
-    private char peek()     { return isAtEnd() ? '\0' : source.charAt(current); }
+    private char peek()     { return source.charAt(current); }
     private char peekNext() { return (current + 1 >= source.length()) ? '\0' : source.charAt(current + 1); }
 
     private boolean match(char expected) {
