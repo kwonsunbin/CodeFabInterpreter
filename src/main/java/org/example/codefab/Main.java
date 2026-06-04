@@ -4,6 +4,7 @@ import org.example.codefab.assembler.Assembler;
 import org.example.codefab.checker.Checker;
 import org.example.codefab.executor.Executor;
 import org.example.codefab.log.Logger;
+import org.example.codefab.shell.Pipeline;
 import org.example.codefab.shell.Shell;
 
 import java.util.Arrays;
@@ -25,6 +26,7 @@ public class Main {
         Executor executor = new Executor(log);
 
         System.out.println("CodeFab Interpreter — type 'exit' to quit.");
-        new Shell(assembler, checker, executor, log, System.in, System.out).run();
+        Pipeline pipeline = new Pipeline(assembler, checker, executor, log, System.out);
+        new Shell(pipeline, System.in, System.out).run();
     }
 }
