@@ -113,18 +113,18 @@ class ParserTest {
         // var a = 1; var b = 1; a = b = 5; — should parse without error
         assertDoesNotThrow(() -> parse("var a = 1; var b = 1; a = b = 5;"));
     }
-//
-//    // ── for statement ─────────────────────────────────────────────────────────
-//
-//    @Test void forWithVarInit() {
-//        var stmts = parse("for (var i = 0; i < 3; i = i + 1) { print i; }");
-//        var forStmt = (Stmt.For) stmts.get(0);
-//        assertInstanceOf(Stmt.Var.class, forStmt.initializer);
-//        assertNotNull(forStmt.condition);
-//        assertNotNull(forStmt.increment);
-//        assertInstanceOf(Stmt.Block.class, forStmt.body);
-//    }
-//
+
+    // ── for statement ─────────────────────────────────────────────────────────
+
+    @Test void forWithVarInit() {
+        var stmts = parse("for (var i = 0; i < 3; i = i + 1) { print i; }");
+        var forStmt = (Stmt.For) stmts.get(0);
+        assertInstanceOf(Stmt.Var.class, forStmt.initializer);
+        assertNotNull(forStmt.condition);
+        assertNotNull(forStmt.increment);
+        assertInstanceOf(Stmt.Block.class, forStmt.body);
+    }
+
 //    @Test void forWithEmptyInit() {
 //        assertDoesNotThrow(() -> parse("for (; true; ) { print 1; }"));
 //    }

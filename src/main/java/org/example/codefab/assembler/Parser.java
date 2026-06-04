@@ -39,7 +39,9 @@ public class Parser {
 
     private Stmt statement() {
         if (match(TokenType.VAR)) return varDeclaration();
+        if (match(TokenType.FOR)) return forStatement();
         if (match(TokenType.PRINT)) return printStatement();
+        if (match(TokenType.LEFT_BRACE)) return block();
         return expressionStatement();
     }
 
@@ -65,8 +67,27 @@ public class Parser {
      * for ( (varDecl | exprStmt | ;)  expression? ;  expression? ) block
      */
     private Stmt forStatement() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement forStatement");
+        consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
+
+        Stmt initializer;
+        if (match(TokenType.SEMICOLON)) {
+            initializer = null;
+        } else if (match(TokenType.VAR)) {
+            initializer = varDeclaration();
+        } else {
+            initializer = expressionStatement();
+        }
+
+        Expr condition = check(TokenType.SEMICOLON) ? null : expression();
+        consume(TokenType.SEMICOLON, "Expect ';' after for condition.");
+
+        Expr increment = check(TokenType.RIGHT_PAREN) ? null : expression();
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.");
+
+        consume(TokenType.LEFT_BRACE, "Expect '{' before for body.");
+        Stmt body = block();
+
+        return new Stmt.For(initializer, condition, increment, body);
     }
 
     /**
@@ -82,8 +103,12 @@ public class Parser {
      * { statement* } — caller must have already consumed LEFT_BRACE
      */
     private Stmt block() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement block");
+        List<Stmt> statements = new ArrayList<>();
+        while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
+            statements.add(statement());
+        }
+        consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
+        return new Stmt.Block(statements);
     }
 
     /**
