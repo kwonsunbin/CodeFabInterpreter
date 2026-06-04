@@ -5,8 +5,6 @@ import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
 import org.example.codefab.token.Token;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.List;
 
 /**
@@ -22,11 +20,7 @@ import java.util.List;
  */
 public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
 
-    // Persistent global scope — survives across REPL submissions so
-    // previously declared globals are visible and re-declaration is caught.
-    private final Scope globalScope = new Scope();
-    private final Deque<Scope> scopes = new ArrayDeque<>();
-
+    private final ScopeStack scopeStack = new ScopeStack();
     private CheckResult result;
 
     /**
@@ -34,7 +28,7 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
      */
     public CheckResult check(List<Stmt> program) {
         result = new CheckResult();
-        if (scopes.isEmpty()) scopes.push(globalScope);
+        scopeStack.initialize();
 
         for (Stmt stmt : program) {
             execute(stmt);
@@ -43,34 +37,24 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
         return result;
     }
 
-    // ── Scope management ─────────────────────────────────────────────────────
-
-    private void beginScope() {
-        scopes.push(new Scope());
-    }
-
-    private void endScope() {
-        scopes.pop();
-    }
+    // ── Rule helpers ──────────────────────────────────────────────────────────
 
     /**
      * Phase 1 of two-phase declare/define: marks name as DECLARING.
      */
     private void declare(Token name) {
-        Scope scope = scopes.peek();
-
-        if (scope.has(name.origin())) {
+        if (scopeStack.has(name.origin())) {
             result.addError(name.line(), "Already a variable with this name in this scope.");
             return;
         }
-        scope.declare(name.origin());
+        scopeStack.declare(name.origin());
     }
 
     /**
      * Phase 2: marks name as DEFINED (initializer fully resolved).
      */
     private void define(Token name) {
-        scopes.peek().define(name.origin());
+        scopeStack.define(name.origin());
     }
 
     // ── Statement visitors (DFS) ──────────────────────────────────────────────
@@ -93,12 +77,12 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
 
     @Override
     public Void visitFor(Stmt.For stmt) {
-        beginScope();
+        scopeStack.beginScope();
         if (stmt.initializer != null) execute(stmt.initializer);
         if (stmt.condition   != null) evaluate(stmt.condition);
         if (stmt.increment   != null) evaluate(stmt.increment);
         execute(stmt.body);
-        endScope();
+        scopeStack.endScope();
         return null;
     }
 
@@ -110,9 +94,9 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
 
     @Override
     public Void visitBlock(Stmt.Block stmt) {
-        beginScope();
+        scopeStack.beginScope();
         for (Stmt s : stmt.statements) execute(s);
-        endScope();
+        scopeStack.endScope();
         return null;
     }
 
@@ -128,9 +112,8 @@ public class Checker implements Stmt.Visitor<Void>, Expr.Visitor<Void> {
     public Void visitVariable(Expr.Variable expr) {
         // Self-reference check: if the name is DECLARING in the current scope,
         // the variable's own initializer is referencing it before it's defined.
-        Scope current = scopes.peek();
-        if (current.has(expr.name.origin())
-                && current.state(expr.name.origin()) == Scope.State.DECLARING) {
+        if (scopeStack.has(expr.name.origin())
+                && scopeStack.state(expr.name.origin()) == Scope.State.DECLARING) {
             result.addError(expr.name.line(),
                     "Can't read local variable in initializer.");
         }
