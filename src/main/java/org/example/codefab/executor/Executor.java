@@ -133,7 +133,11 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
             }
             case MINUS -> { checkNumberOperands(expr.op, left, right); yield (double) left - (double) right; }
             case STAR  -> { checkNumberOperands(expr.op, left, right); yield (double) left * (double) right; }
-            case SLASH -> { checkNumberOperands(expr.op, left, right); yield (double) left / (double) right; }
+            case SLASH -> {
+                checkNumberOperands(expr.op, left, right);
+                if ((double) right == 0) throw new RuntimeError(expr.op, "Division by zero.");
+                yield (double) left / (double) right;
+            }
             default    -> throw new RuntimeError(expr.op, "Unknown binary operator.");
         };
     }
@@ -176,7 +180,10 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
         }
     }
 
-    private Object evaluate(Expr expr)  { return expr.accept(this); }
+    private Object evaluate(Expr expr)  {
+        return expr.accept(this);
+    }
+
     private void   execute(Stmt stmt)   { stmt.accept(this); }
 
     /** Truthiness: Boolean → itself; null → false; everything else → true. */

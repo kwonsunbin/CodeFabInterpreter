@@ -143,6 +143,36 @@ class ExecutorTest {
         assertEquals("4", exec(List.of(new Stmt.Print(expr))));
     }
 
+    @Test void printDivision_fractionalResult() {
+        // print 7 / 2; → "3.5"
+        var expr = new Expr.Binary(num(7.0), tok(TokenType.SLASH, "/"), num(2.0));
+        assertEquals("3.5", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test void division_byZero_throwsRuntimeError() {
+        // print 10 / 0; → RuntimeError (0으로 나누기)
+        var expr = new Expr.Binary(num(10.0), tok(TokenType.SLASH, "/"), num(0.0));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(new Stmt.Print(expr))));
+        assertTrue(ex.getMessage().contains("Division by zero"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test void division_zeroByZero_throwsRuntimeError() {
+        // print 0 / 0; → RuntimeError (0으로 나누기)
+        var expr = new Expr.Binary(num(0.0), tok(TokenType.SLASH, "/"), num(0.0));
+        assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test void division_nonNumber_throwsRuntimeError() {
+        // print "a" / 2; → RuntimeError (타입 불일치)
+        var expr = new Expr.Binary(str("a"), tok(TokenType.SLASH, "/"), num(2.0));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(new Stmt.Print(expr))));
+        assertTrue(ex.getMessage().contains("Operands must be numbers"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
     @Test void printStringConcat() {
         // print "Hello" + " World"; → "Hello World"
         var expr = new Expr.Binary(str("Hello"), tok(TokenType.PLUS, "+"), str(" World"));
