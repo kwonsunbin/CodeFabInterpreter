@@ -23,19 +23,20 @@ public class Environment {
 
     /** Declare a new variable in this scope. */
     public void define(String name, Object value) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement define");
+        values.put(name, value);
     }
 
     /** Read a variable, walking the enclosing chain. */
     public Object get(Token name) {
-        // TODO: look in this scope, then enclosing, then throw RuntimeError
-        throw new UnsupportedOperationException("TODO: implement get");
+        if (values.containsKey(name.origin())) return values.get(name.origin());
+        if (enclosing != null) return enclosing.get(name);
+        throw new RuntimeError(name, "Undefined variable '" + name.origin() + "'.");
     }
 
     /** Assign to an existing variable in the nearest scope that defines it. */
     public void assign(Token name, Object value) {
-        // TODO: look in this scope, then enclosing, then throw RuntimeError
-        throw new UnsupportedOperationException("TODO: implement assign");
+        if (values.containsKey(name.origin())) { values.put(name.origin(), value); return; }
+        if (enclosing != null) { enclosing.assign(name, value); return; }
+        throw new RuntimeError(name, "Undefined variable '" + name.origin() + "'.");
     }
 }
