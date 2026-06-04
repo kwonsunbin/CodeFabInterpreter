@@ -39,34 +39,93 @@ public class Lexer {
     }
 
     public List<Token> scanTokens() {
-        // TODO: scan all tokens and append EOF
-        throw new UnsupportedOperationException("TODO: implement scanTokens");
+        while (!isAtEnd()) {
+            start = current;
+            scanToken();
+        }
+        tokens.add(new Token(TokenType.EOF, "", null, line));
+        return tokens;
     }
 
     private void scanToken() {
-        // TODO: read next char and dispatch to the correct handler
-        throw new UnsupportedOperationException("TODO: implement scanToken");
+        char c = advance();
+        switch (c) {
+            case '(' -> addToken(TokenType.LEFT_PAREN);
+            case ')' -> addToken(TokenType.RIGHT_PAREN);
+            case '{' -> addToken(TokenType.LEFT_BRACE);
+            case '}' -> addToken(TokenType.RIGHT_BRACE);
+            case ';' -> addToken(TokenType.SEMICOLON);
+            case '+' -> addToken(TokenType.PLUS);
+            case '-' -> addToken(TokenType.MINUS);
+            case '*' -> addToken(TokenType.STAR);
+            case '/' -> {
+                if (match('/')) {
+                    // Line comment — skip to end of line
+                    while (!isAtEnd() && peek() != '\n') advance();
+                } else {
+                    addToken(TokenType.SLASH);
+                }
+            }
+            case '>' -> addToken(match('=') ? TokenType.GREATER_EQUAL : TokenType.GREATER);
+            case '<' -> addToken(match('=') ? TokenType.LESS_EQUAL   : TokenType.LESS);
+            case '=' -> addToken(match('=') ? TokenType.EQUAL_EQUAL  : TokenType.EQUAL);
+            case '!' -> addToken(match('=') ? TokenType.BANG_EQUAL   : TokenType.BANG);
+            case '"' -> string();
+            case ' ', '\r', '\t' -> { /* ignore whitespace */ }
+            case '\n' -> line++;
+            default -> {
+                if (isDigit(c)) {
+                    number();
+                } else if (isAlpha(c)) {
+                    identifier();
+                } else {
+                    throw new LexError(line, "Unexpected character: '" + c + "'");
+                }
+            }
+        }
     }
 
     private void string() {
-        // TODO: consume characters until closing " and add STRING token
-        throw new UnsupportedOperationException("TODO: implement string");
+        while (!isAtEnd() && peek() != '"') {
+            if (peek() == '\n') line++;
+            advance();
+        }
+        if (isAtEnd()) {
+            throw new LexError(line, "Unterminated string.");
+        }
+        advance(); // closing "
+
+        // Strip surrounding quotes
+        String value = source.substring(start + 1, current - 1);
+        addToken(TokenType.STRING, value);
     }
 
     private void number() {
-        // TODO: consume digits (and optional decimal part) and add NUMBER token
-        throw new UnsupportedOperationException("TODO: implement number");
+        while (!isAtEnd() && isDigit(peek())) advance();
+        if (!isAtEnd() && peek() == '.' && isDigit(peekNext())) {
+            advance(); // consume '.'
+            while (!isAtEnd() && isDigit(peek())) advance();
+        }
+        double value = Double.parseDouble(source.substring(start, current));
+        addToken(TokenType.NUMBER, value);
     }
 
     private void identifier() {
-        // TODO: consume alphanumeric chars, look up keyword map, add token
-        throw new UnsupportedOperationException("TODO: implement identifier");
+        while (!isAtEnd() && isAlphaNumeric(peek())) advance();
+        String text = source.substring(start, current);
+        TokenType type = KEYWORDS.getOrDefault(text, TokenType.IDENTIFIER);
+        Object value = switch (type) {
+            case TRUE  -> Boolean.TRUE;
+            case FALSE -> Boolean.FALSE;
+            default    -> null;
+        };
+        addToken(type, value);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private char advance()  { return source.charAt(current++); }
-    private char peek()     { return isAtEnd() ? '\0' : source.charAt(current); }
+    private char peek()     { return source.charAt(current); }
     private char peekNext() { return (current + 1 >= source.length()) ? '\0' : source.charAt(current + 1); }
 
     private boolean match(char expected) {

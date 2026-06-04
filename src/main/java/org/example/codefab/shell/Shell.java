@@ -47,14 +47,53 @@ public class Shell {
     }
 
     public void run() {
-        // TODO: REPL loop — print prompt, read lines into SubmissionBuffer,
-        //       call runPipeline when buffer is complete, handle "exit"/"quit"
-        throw new UnsupportedOperationException("TODO: implement run");
+        SubmissionBuffer buf = new SubmissionBuffer();
+        try {
+            while (true) {
+                out.print(buf.isEmpty() ? PRIMARY : CONTINUATION);
+                out.flush();
+
+                String line = reader.readLine();
+                if (line == null) break;
+
+                String trimmed = line.strip();
+                if (buf.isEmpty() && (trimmed.equals("exit") || trimmed.equals("quit"))) break;
+                if (buf.isEmpty() && trimmed.isEmpty()) continue;
+
+                buf.append(line);
+
+                if (buf.isComplete()) {
+                    runPipeline(buf.text());
+                    buf.clear();
+                }
+            }
+        } catch (java.io.IOException e) {
+            out.println("I/O error: " + e.getMessage());
+        }
+    }
+
+    private void printDiagnostics(List<Diagnostic> diagnostics) {
+        for (Diagnostic d : diagnostics) {
+            out.println(d);
+        }
     }
 
     private void runPipeline(String source) {
-        // TODO: assemble → check (print warnings, bail on errors) → execute
-        //       catch CodeFabError and log it
-        throw new UnsupportedOperationException("TODO: implement runPipeline");
+        try {
+            List<Stmt> program = assembler.assemble(source);
+            CheckResult cr = checker.check(program);
+
+            printDiagnostics(cr.warnings);
+
+            if (!cr.ok()) {
+                printDiagnostics(cr.errors);
+                return;
+            }
+
+            executor.run(program);
+        } catch (CodeFabError e) {
+            log.error(e);
+            out.println(e.getMessage());
+        }
     }
 }
