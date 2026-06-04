@@ -63,4 +63,28 @@ class CheckerTest {
         var result = check("var g = 2;");
         assertFalse(result.ok());
     }
+
+    @Test void ifStatementHasNoErrors() {
+        assertTrue(check("var a = 1; if (a > 0) { print a; }").ok());
+    }
+
+    @Test void ifElseStatementHasNoErrors() {
+        assertTrue(check("var a = 1; if (a > 0) { print a; } else { print a; }").ok());
+    }
+
+    @Test void logicalAndExpressionHasNoErrors() {
+        assertTrue(check("var a = 1; var b = 2; if (a > 0 and b > 0) { print a; }").ok());
+    }
+
+    @Test void unaryExpressionHasNoErrors() {
+        assertTrue(check("var a = 1; print -a;").ok());
+    }
+
+    @Test void groupingExpressionHasNoErrors() {
+        assertTrue(check("var a = 1; print (a + 1);").ok());
+    }
+
+    @Test void assignmentStatementHasNoErrors() {
+        assertTrue(check("var a = 1; a = 2; print a;").ok());
+    }
 }
