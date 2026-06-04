@@ -167,16 +167,14 @@ public class Parser {
      * primary = NUMBER | STRING | true | false | IDENTIFIER | ( expression )
      */
     private Expr primary() {
-        if (match(TokenType.NUMBER)) return new Expr.Literal(previous().value());
-        if (match(TokenType.TRUE)) return new Expr.Literal(Boolean.TRUE);
-        if (match(TokenType.FALSE)) return new Expr.Literal(Boolean.FALSE);
+        if (match(TokenType.NUMBER, TokenType.STRING, TokenType.TRUE, TokenType.FALSE))
+            return new Expr.Literal(previous().value());
         if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
             return new Expr.Grouping(expr);
         }
-        if (match(TokenType.STRING)) return new Expr.Literal(previous().value());
         throw new ParseError(peek().line(), "Expect expression.");
     }
 
@@ -220,7 +218,7 @@ public class Parser {
     }
 
     @FunctionalInterface
-    interface NodeBuilder {
+    private interface NodeBuilder {
         Expr build(Expr left, Token op, Expr right);
     }
 }
