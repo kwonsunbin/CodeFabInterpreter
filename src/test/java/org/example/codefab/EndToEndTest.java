@@ -270,6 +270,6 @@ class EndToEndTest {
     @Test void unaryMinusOnString_runtimeError() {
         var result = run("print -\"FabCoding\";");
         assertTrue(result.hasRuntimeError());
-        assertTrue(result.runtimeError().contains("Operand must be a number"));
+        assertTrue(result.runtimeError().contains("타입에 대해") && result.runtimeError().contains("연산은 지원하지 않습니다"));
     }
 }

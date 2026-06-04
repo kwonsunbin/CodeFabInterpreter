@@ -195,12 +195,23 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     private void checkNumberOperand(Token op, Object operand) {
         if (operand instanceof Double) return;
-        throw new RuntimeError(op, "Operand must be a number.");
+        throw new RuntimeError(op,
+                typeName(operand) + " 타입에 대해 '" + op.origin() + "' 연산은 지원하지 않습니다.");
     }
 
     private void checkNumberOperands(Token op, Object left, Object right) {
         if (left instanceof Double && right instanceof Double) return;
-        throw new RuntimeError(op, "Operands must be numbers.");
+        throw new RuntimeError(op,
+                typeName(left) + " 타입과 " + typeName(right) + " 타입에 대해 '" +
+                op.origin() + "' 연산은 지원하지 않습니다.");
+    }
+
+    private static String typeName(Object value) {
+        if (value == null)            return "null";
+        if (value instanceof Double)  return "number";
+        if (value instanceof Boolean) return "boolean";
+        if (value instanceof String)  return "string";
+        return value.getClass().getSimpleName();
     }
 
     /**
