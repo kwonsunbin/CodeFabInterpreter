@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CheckerTest {
 
-    private Checker checker;
+    Checker checker;
 
     @BeforeEach void setUp() {
         checker = new Checker(); // fresh instance per test (fresh scope state)
