@@ -28,9 +28,13 @@ public class Environment {
 
     /** Read a variable, walking the enclosing chain. */
     public Object get(Token name) {
-        if (values.containsKey(name.origin())) return values.get(name.origin());
-        if (enclosing != null) return enclosing.get(name);
-        throw new RuntimeError(name, "Undefined variable '" + name.origin() + "'.");
+        String key = name.origin();
+        Object val = values.get(key);
+        if (val != null || values.containsKey(key))
+            return val;
+        if (enclosing != null)
+            return enclosing.get(name);
+        throw new RuntimeError(name, "Undefined variable '" + key + "'.");
     }
 
     /** Assign to an existing variable in the nearest scope that defines it. */
