@@ -365,4 +365,76 @@ class ExecutorTest {
         var stmt = new Stmt.If(or, new Stmt.Print(str("yes")), null);
         assertEquals("yes", exec(List.of(stmt)));
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 10. Line Coverage 100% — 미커버 라인 보완
+    // ════════════════════════════════════════════════════════════════════════
+
+    // ── visitUnary: BANG (line 119) + isTruthy non-Boolean (line 186) ────────
+
+    @Test void unaryBang_onFalse_returnsTrue() {
+        // !false → true   (line 119: BANG 케이스)
+        var expr = new Expr.Unary(tok(TokenType.BANG, "!"), bool(false));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test void unaryBang_onNumber_isTruthy_returnsTrue_line186() {
+        // !5.0 → false
+        // isTruthy(5.0): null 아님(184) → Boolean 아님(185) → return true(186)
+        // BANG 케이스(119)와 isTruthy return true(186) 동시 커버
+        var expr = new Expr.Unary(tok(TokenType.BANG, "!"), num(5.0));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    // ── visitUnary: default → RuntimeError (line 120) ────────────────────────
+
+    @Test void unaryUnknownOperator_throwsRuntimeError() {
+        // PLUS는 unary switch의 default → RuntimeError (line 120)
+        var expr = new Expr.Unary(tok(TokenType.PLUS, "+"), num(1.0));
+        assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
+    }
+
+    // ── visitBinary: default → RuntimeError (line 137) ───────────────────────
+
+    @Test void binaryUnknownOperator_throwsRuntimeError() {
+        // GREATER는 Binary switch의 default → RuntimeError (line 137)
+        var expr = new Expr.Binary(num(1.0), tok(TokenType.GREATER, ">"), num(2.0));
+        assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
+    }
+
+    // ── visitComparison: GREATER_EQUAL (line 148) ────────────────────────────
+
+    @Test void comparison_greaterEqual_true() {
+        // 5 >= 5 → true  (line 148)
+        var expr = new Expr.Comparison(num(5.0), tok(TokenType.GREATER_EQUAL, ">="), num(5.0));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test void comparison_greaterEqual_false() {
+        // 3 >= 5 → false  (line 148)
+        var expr = new Expr.Comparison(num(3.0), tok(TokenType.GREATER_EQUAL, ">="), num(5.0));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    // ── visitComparison: LESS_EQUAL (line 150) ───────────────────────────────
+
+    @Test void comparison_lessEqual_true() {
+        // 3 <= 5 → true  (line 150)
+        var expr = new Expr.Comparison(num(3.0), tok(TokenType.LESS_EQUAL, "<="), num(5.0));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test void comparison_lessEqual_false() {
+        // 5 <= 3 → false  (line 150)
+        var expr = new Expr.Comparison(num(5.0), tok(TokenType.LESS_EQUAL, "<="), num(3.0));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    // ── visitComparison: default → RuntimeError (line 151) ───────────────────
+
+    @Test void comparisonUnknownOperator_throwsRuntimeError() {
+        // PLUS는 Comparison switch의 default → RuntimeError (line 151)
+        var expr = new Expr.Comparison(num(1.0), tok(TokenType.PLUS, "+"), num(2.0));
+        assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
+    }
 }
