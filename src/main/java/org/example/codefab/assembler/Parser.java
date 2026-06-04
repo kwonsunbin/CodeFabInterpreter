@@ -13,11 +13,10 @@ import java.util.function.Supplier;
 /**
  * Assembler Step 2: Recursive-descent parser.
  * Converts a token stream into a List<Stmt> AST.
- *
+ * <p>
  * Grammar (top-down, highest precedence last):
- *   program    → statement* EOF
- *   statement  → varDecl | ifStmt | forStmt | printStmt | block | exprStmt
- *   expression → assignment → or → and → comparison → term → factor → unary → primary
+ * program    → statement* EOF
+ * expression → assignment → or → and → comparison → term → factor → unary → primary
  */
 public class Parser {
 
@@ -39,12 +38,14 @@ public class Parser {
     // ── Statements ────────────────────────────────────────────────────────────
 
     private Stmt statement() {
-        if (match(TokenType.VAR))   return varDeclaration();
+        if (match(TokenType.VAR)) return varDeclaration();
         if (match(TokenType.PRINT)) return printStatement();
         return expressionStatement();
     }
 
-    /** var IDENTIFIER ( = expression )? ; */
+    /**
+     * var IDENTIFIER ( = expression )? ;
+     */
     private Stmt varDeclaration() {
         Token name = consume(TokenType.IDENTIFIER, "Expect variable name.");
         Expr initializer = match(TokenType.EQUAL) ? expression() : null;
@@ -52,32 +53,42 @@ public class Parser {
         return new Stmt.Var(name, initializer);
     }
 
-    /** if ( expression ) statement ( else statement )? */
+    /**
+     * if ( expression ) statement ( else statement )?
+     */
     private Stmt ifStatement() {
         // TODO
         throw new UnsupportedOperationException("TODO: implement ifStatement");
     }
 
-    /** for ( (varDecl | exprStmt | ;)  expression? ;  expression? ) block */
+    /**
+     * for ( (varDecl | exprStmt | ;)  expression? ;  expression? ) block
+     */
     private Stmt forStatement() {
         // TODO
         throw new UnsupportedOperationException("TODO: implement forStatement");
     }
 
-    /** print expression ; */
+    /**
+     * print expression ;
+     */
     private Stmt printStatement() {
         Expr value = expression();
         consume(TokenType.SEMICOLON, "Expect ';' after value.");
         return new Stmt.Print(value);
     }
 
-    /** { statement* } — caller must have already consumed LEFT_BRACE */
+    /**
+     * { statement* } — caller must have already consumed LEFT_BRACE
+     */
     private Stmt block() {
         // TODO
         throw new UnsupportedOperationException("TODO: implement block");
     }
 
-    /** expression ; */
+    /**
+     * expression ;
+     */
     private Stmt expressionStatement() {
         Expr expr = expression();
         consume(TokenType.SEMICOLON, "Expect ';' after expression.");
@@ -85,11 +96,6 @@ public class Parser {
     }
 
     // ── Expressions (precedence: low → high) ──────────────────────────────────
-
-    @FunctionalInterface
-    interface NodeBuilder {
-        Expr build(Expr left, Token op, Expr right);
-    }
 
     private Expr leftAssoc(Supplier<Expr> operand, NodeBuilder builder, TokenType... ops) {
         Expr expr = operand.get();
@@ -103,7 +109,9 @@ public class Parser {
         return assignment();
     }
 
-    /** assignment = IDENTIFIER = assignment | logic_or  (right-associative) */
+    /**
+     * assignment = IDENTIFIER = assignment | logic_or  (right-associative)
+     */
     private Expr assignment() {
         Expr expr = or();
         if (match(TokenType.EQUAL)) {
@@ -116,13 +124,29 @@ public class Parser {
         return expr;
     }
 
-    private Expr or()         { return leftAssoc(this::and,        Expr.Logical::new,    TokenType.OR); }
-    private Expr and()        { return leftAssoc(this::comparison, Expr.Logical::new,    TokenType.AND); }
-    private Expr comparison() { return leftAssoc(this::term,       Expr.Comparison::new, TokenType.GREATER, TokenType.LESS); }
-    private Expr term()       { return leftAssoc(this::factor,     Expr.Binary::new,     TokenType.PLUS,    TokenType.MINUS); }
-    private Expr factor()     { return leftAssoc(this::unary,      Expr.Binary::new,     TokenType.STAR,    TokenType.SLASH); }
+    private Expr or() {
+        return leftAssoc(this::and, Expr.Logical::new, TokenType.OR);
+    }
 
-    /** unary = - unary | primary */
+    private Expr and() {
+        return leftAssoc(this::comparison, Expr.Logical::new, TokenType.AND);
+    }
+
+    private Expr comparison() {
+        return leftAssoc(this::term, Expr.Comparison::new, TokenType.GREATER, TokenType.LESS);
+    }
+
+    private Expr term() {
+        return leftAssoc(this::factor, Expr.Binary::new, TokenType.PLUS, TokenType.MINUS);
+    }
+
+    private Expr factor() {
+        return leftAssoc(this::unary, Expr.Binary::new, TokenType.STAR, TokenType.SLASH);
+    }
+
+    /**
+     * unary = - unary | primary
+     */
     private Expr unary() {
         if (match(TokenType.MINUS)) {
             return new Expr.Unary(previous(), unary());
@@ -130,11 +154,13 @@ public class Parser {
         return primary();
     }
 
-    /** primary = NUMBER | STRING | true | false | IDENTIFIER | ( expression ) */
+    /**
+     * primary = NUMBER | STRING | true | false | IDENTIFIER | ( expression )
+     */
     private Expr primary() {
-        if (match(TokenType.NUMBER))     return new Expr.Literal(previous().value());
-        if (match(TokenType.TRUE))       return new Expr.Literal(Boolean.TRUE);
-        if (match(TokenType.FALSE))      return new Expr.Literal(Boolean.FALSE);
+        if (match(TokenType.NUMBER)) return new Expr.Literal(previous().value());
+        if (match(TokenType.TRUE)) return new Expr.Literal(Boolean.TRUE);
+        if (match(TokenType.FALSE)) return new Expr.Literal(Boolean.FALSE);
         if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
@@ -145,15 +171,18 @@ public class Parser {
         throw new ParseError(peek().line(), "Expect expression.");
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     @SafeVarargs
     private boolean match(TokenType... types) {
         for (TokenType type : types) {
-            if (check(type)) { advance(); return true; }
+            if (check(type)) {
+                advance();
+                return true;
+            }
         }
         return false;
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private boolean check(TokenType type) {
         return !isAtEnd() && peek().type() == type;
@@ -169,7 +198,20 @@ public class Parser {
         throw new ParseError(peek().line(), message);
     }
 
-    private boolean isAtEnd()  { return peek().type() == TokenType.EOF; }
-    private Token peek()       { return tokens.get(current); }
-    private Token previous()   { return tokens.get(current - 1); }
+    private boolean isAtEnd() {
+        return peek().type() == TokenType.EOF;
+    }
+
+    private Token peek() {
+        return tokens.get(current);
+    }
+
+    private Token previous() {
+        return tokens.get(current - 1);
+    }
+
+    @FunctionalInterface
+    interface NodeBuilder {
+        Expr build(Expr left, Token op, Expr right);
+    }
 }

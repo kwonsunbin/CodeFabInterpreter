@@ -2,6 +2,7 @@ package org.example.codefab.assembler;
 
 import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
+import org.example.codefab.error.ParseError;
 import org.example.codefab.token.Token;
 import org.example.codefab.token.TokenType;
 import org.junit.jupiter.api.Test;
@@ -18,8 +19,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MockitoExtension.class)
 class ParserTest {
 
-    @Mock
+//    @Mock
     Lexer lexer;
+
 
     private List<Stmt> parse(String src) {
         return new Assembler(lexer).assemble(src);
@@ -51,16 +53,6 @@ class ParserTest {
 
     @Test void multiplicationBeforeAddition() {
         // 1 + 2 * 3  →  Binary(1, +, Binary(2, *, 3))
-        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
-                new Token(TokenType.PRINT,     "print", null, 1),
-                new Token(TokenType.NUMBER,    "1",     1.0,  1),
-                new Token(TokenType.PLUS,      "+",     null, 1),
-                new Token(TokenType.NUMBER,    "2",     2.0,  1),
-                new Token(TokenType.STAR,      "*",     null, 1),
-                new Token(TokenType.NUMBER,    "3",     3.0,  1),
-                new Token(TokenType.SEMICOLON, ";",     null, 1),
-                new Token(TokenType.EOF,       "",      null, 1)
-        ));
         var outer = (Expr.Binary) getOuterStatementOfSelectedStatement("print 1 + 2 * 3;", 0);
         assertEquals(TokenType.PLUS, outer.op.type());
         var inner = (Expr.Binary) outer.right;
@@ -68,18 +60,6 @@ class ParserTest {
     }
     @Test void groupingOverridesPrecedence() {
         // print (1 + 2) * 3;  →  Binary(Grouping(Binary(1,+,2)), *, 3)
-        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
-                new Token(TokenType.PRINT,       "print", null, 1),
-                new Token(TokenType.LEFT_PAREN,  "(",     null, 1),
-                new Token(TokenType.NUMBER,      "1",     1.0,  1),
-                new Token(TokenType.PLUS,        "+",     null, 1),
-                new Token(TokenType.NUMBER,      "2",     2.0,  1),
-                new Token(TokenType.RIGHT_PAREN, ")",     null, 1),
-                new Token(TokenType.STAR,        "*",     null, 1),
-                new Token(TokenType.NUMBER,      "3",     3.0,  1),
-                new Token(TokenType.SEMICOLON,   ";",     null, 1),
-                new Token(TokenType.EOF,         "",      null, 1)
-        ));
         var outer = (Expr.Binary) getOuterStatementOfSelectedStatement("print (1 + 2) * 3;", 0);
         assertEquals(TokenType.STAR, outer.op.type());
         assertInstanceOf(Expr.Grouping.class, outer.left);
@@ -87,52 +67,18 @@ class ParserTest {
 
     @Test void leftAssociativity() {
         // 10 - 4 - 3 → Binary(Binary(10, -, 4), -, 3)
-
-        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
-                new Token(TokenType.PRINT,       "print", null, 1),
-                new Token(TokenType.NUMBER,  "10",     10.0, 1),
-                new Token(TokenType.MINUS,      "-",     null,  1),
-                new Token(TokenType.NUMBER,        "4",     4.0, 1),
-                new Token(TokenType.MINUS,      "-",     null,  1),
-                new Token(TokenType.NUMBER, "3",     null, 1),
-                new Token(TokenType.SEMICOLON,   ";",     null, 1),
-                new Token(TokenType.EOF,         "",      null, 1)
-        ));
         var outer = (Expr.Binary) getOuterStatementOfSelectedStatement("print 10 - 4 - 3;", 0);
         assertInstanceOf(Expr.Binary.class, outer.left);
     }
 
     @Test void comparisonBindsLooserThanTerm() {
         // 1 + 2 < 3 + 4  →  Comparison(Binary(1,+,2), <, Binary(3,+,4))
-
-        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
-                new Token(TokenType.PRINT,       "print", null, 1),
-                new Token(TokenType.NUMBER,  "1",     1.0, 1),
-                new Token(TokenType.PLUS,      "+",     null,  1),
-                new Token(TokenType.NUMBER,        "2",     2.0, 1),
-                new Token(TokenType.LESS,      "<",     null,  1),
-                new Token(TokenType.NUMBER, "3",     3.0, 1),
-                new Token(TokenType.PLUS,      "+",     null,  1),
-                new Token(TokenType.NUMBER,        "4",     4.0, 1),
-                new Token(TokenType.SEMICOLON,   ";",     null, 1),
-                new Token(TokenType.EOF,         "",      null, 1)
-        ));
         var outer = getOuterStatementOfSelectedStatement("print 1 + 2 < 3 + 4;", 0);
         assertInstanceOf(Expr.Comparison.class, outer);
     }
 
     @Test void andBindsTighterThanOr() {
         // a or b and c → Logical(a, or, Logical(b, and, c))
-        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
-                new Token(TokenType.PRINT,     "print", null, 1),
-                new Token(TokenType.NUMBER,    "1",     1.0,  1),
-                new Token(TokenType.OR,        "or",    null, 1),
-                new Token(TokenType.NUMBER,    "2",     2.0,  1),
-                new Token(TokenType.AND,       "and",   null, 1),
-                new Token(TokenType.NUMBER,    "3",     3.0,  1),
-                new Token(TokenType.SEMICOLON, ";",     null, 1),
-                new Token(TokenType.EOF,       "",      null, 1)
-        ));
         var outer = (Expr.Logical) getOuterStatementOfSelectedStatement("print 1 or 2 and 3;",0);
         assertEquals(TokenType.OR, outer.op.type());
         assertInstanceOf(Expr.Logical.class, outer.right);
@@ -141,59 +87,32 @@ class ParserTest {
     // ── Unary minus ───────────────────────────────────────────────────────────
 
     @Test void unaryMinusProducesUnaryNode() {
-        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
-            new Token(TokenType.PRINT,     "print", null, 1),
-            new Token(TokenType.MINUS,        "-",    null, 1),
-            new Token(TokenType.NUMBER,    "5",     5.0,  1),
-            new Token(TokenType.SEMICOLON, ";",     null, 1),
-            new Token(TokenType.EOF,       "",      null, 1)
-        ));
         var outer = (Expr.Unary) getOuterStatementOfSelectedStatement("print -5;",0);
         assertInstanceOf(Expr.Unary.class, outer);
     }
 
     @Test void doubleUnaryMinus() {
-        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
-                new Token(TokenType.PRINT,     "print", null, 1),
-                new Token(TokenType.MINUS,     "-",     null, 1),
-                new Token(TokenType.MINUS,     "-",     null, 1),
-                new Token(TokenType.NUMBER,    "5",     5.0,  1),
-                new Token(TokenType.SEMICOLON, ";",     null, 1),
-                new Token(TokenType.EOF,       "",      null, 1)
-        ));
-        var outer = (Expr.Unary) getOuterStatementOfSelectedStatement("print -5;",0);
+        var outer = (Expr.Unary) getOuterStatementOfSelectedStatement("print --5;",0);
         assertInstanceOf(Expr.Unary.class, outer.operand);
     }
 
     // ── Assignment ────────────────────────────────────────────────────────────
 
     @Test void validAssignment() {
-        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
-                new Token(TokenType.VAR,        "var", null, 1),
-                new Token(TokenType.IDENTIFIER, "a",   null, 1),
-                new Token(TokenType.EQUAL,      "=",   null, 1),
-                new Token(TokenType.NUMBER,     "1",   1.0,  1),
-                new Token(TokenType.SEMICOLON,  ";",   null, 1),
-                new Token(TokenType.IDENTIFIER, "a",   null, 1),
-                new Token(TokenType.EQUAL,      "=",   null, 1),
-                new Token(TokenType.NUMBER,     "2",   2.0,  1),
-                new Token(TokenType.SEMICOLON,  ";",   null, 1),
-                new Token(TokenType.EOF,        "",    null, 1)
-        ));
         var stmts = parse("var a = 1; a = 2;");
         assertInstanceOf(Stmt.Var.class, stmts.get(0));
         assertInstanceOf(Stmt.Expression.class, stmts.get(1));
         assertInstanceOf(Expr.Assign.class, ((Stmt.Expression) stmts.get(1)).expression);
     }
-//
-//    @Test void invalidAssignmentTargetThrows() {
-//        assertThrows(ParseError.class, () -> parse("var a = 1; var b = 2; a + b = 3;"));
-//    }
-//
-//    @Test void rightAssociativeAssignment() {
-//        // var a = 1; var b = 1; a = b = 5; — should parse without error
-//        assertDoesNotThrow(() -> parse("var a = 1; var b = 1; a = b = 5;"));
-//    }
+
+    @Test void invalidAssignmentTargetThrows() {
+        assertThrows(ParseError.class, () -> parse("var a = 1; var b = 2; a + b = 3;"));
+    }
+
+    @Test void rightAssociativeAssignment() {
+        // var a = 1; var b = 1; a = b = 5; — should parse without error
+        assertDoesNotThrow(() -> parse("var a = 1; var b = 1; a = b = 5;"));
+    }
 //
 //    // ── for statement ─────────────────────────────────────────────────────────
 //
