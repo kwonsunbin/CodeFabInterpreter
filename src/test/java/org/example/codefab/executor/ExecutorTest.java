@@ -437,4 +437,13 @@ class ExecutorTest {
         var expr = new Expr.Comparison(num(1.0), tok(TokenType.PLUS, "+"), num(2.0));
         assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
     }
+
+    // ── checkNumberOperands: throw (line 196) ────────────────────────────────
+
+    @Test void binaryMinus_withString_throwsRuntimeError() {
+        // "str" - 5 → checkNumberOperands throw (line 196)
+        var expr = new Expr.Binary(str("str"), tok(TokenType.MINUS, "-"), num(5.0));
+        var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
+        assertTrue(ex.getMessage().contains("Operands must be numbers"));
+    }
 }
