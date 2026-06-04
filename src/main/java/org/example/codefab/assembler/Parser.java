@@ -29,9 +29,7 @@ public class Parser {
 
     public List<Stmt> parse() {
         List<Stmt> statements = new ArrayList<>();
-        while (!isAtEnd()) {
-            statements.add(statement());
-        }
+        while (!isAtEnd()) statements.add(statement());
         return statements;
     }
 
@@ -63,38 +61,26 @@ public class Parser {
         consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
         Expr condition = expression();
         consume(TokenType.RIGHT_PAREN, "Expect ')' after if condition.");
-
         Stmt thenBranch = statement();
         Stmt elseBranch = match(TokenType.ELSE) ? statement() : null;
-
         return new Stmt.If(condition, thenBranch, elseBranch);
     }
 
     /**
-     * for ( (varDecl | exprStmt | ;)  expression? ;  expression? ) block
+     * for ( (varDecl | exprStmt | ;) expression? ; expression? ) block
      */
     private Stmt forStatement() {
         consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.");
-
         Stmt initializer;
-        if (match(TokenType.SEMICOLON)) {
-            initializer = null;
-        } else if (match(TokenType.VAR)) {
-            initializer = varDeclaration();
-        } else {
-            initializer = expressionStatement();
-        }
-
+        if (match(TokenType.SEMICOLON)) initializer = null;
+        else if (match(TokenType.VAR)) initializer = varDeclaration();
+        else initializer = expressionStatement();
         Expr condition = check(TokenType.SEMICOLON) ? null : expression();
         consume(TokenType.SEMICOLON, "Expect ';' after for condition.");
-
         Expr increment = check(TokenType.RIGHT_PAREN) ? null : expression();
         consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.");
-
         consume(TokenType.LEFT_BRACE, "Expect '{' before for body.");
-        Stmt body = block();
-
-        return new Stmt.For(initializer, condition, increment, body);
+        return new Stmt.For(initializer, condition, increment, block());
     }
 
     /**
@@ -110,12 +96,10 @@ public class Parser {
      * { statement* } — caller must have already consumed LEFT_BRACE
      */
     private Stmt block() {
-        List<Stmt> statements = new ArrayList<>();
-        while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
-            statements.add(statement());
-        }
+        List<Stmt> stmts = new ArrayList<>();
+        while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) stmts.add(statement());
         consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
-        return new Stmt.Block(statements);
+        return new Stmt.Block(stmts);
     }
 
     /**
@@ -131,9 +115,7 @@ public class Parser {
 
     private Expr leftAssoc(Supplier<Expr> operand, NodeBuilder builder, TokenType... ops) {
         Expr expr = operand.get();
-        while (match(ops)) {
-            expr = builder.build(expr, previous(), operand.get());
-        }
+        while (match(ops)) expr = builder.build(expr, previous(), operand.get());
         return expr;
     }
 
@@ -142,15 +124,13 @@ public class Parser {
     }
 
     /**
-     * assignment = IDENTIFIER = assignment | logic_or  (right-associative)
+     * assignment → IDENTIFIER = assignment | or  (right-associative)
      */
     private Expr assignment() {
         Expr expr = or();
         if (match(TokenType.EQUAL)) {
             Expr value = assignment();
-            if (expr instanceof Expr.Variable v) {
-                return new Expr.Assign(v.name, value);
-            }
+            if (expr instanceof Expr.Variable v) return new Expr.Assign(v.name, value);
             throw new ParseError(peek().line(), "Invalid assignment target.");
         }
         return expr;
@@ -176,13 +156,8 @@ public class Parser {
         return leftAssoc(this::unary, Expr.Binary::new, TokenType.STAR, TokenType.SLASH);
     }
 
-    /**
-     * unary = - unary | primary
-     */
     private Expr unary() {
-        if (match(TokenType.MINUS)) {
-            return new Expr.Unary(previous(), unary());
-        }
+        if (match(TokenType.MINUS)) return new Expr.Unary(previous(), unary());
         return primary();
     }
 
