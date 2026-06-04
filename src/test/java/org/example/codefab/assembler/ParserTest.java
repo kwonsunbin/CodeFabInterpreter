@@ -3,20 +3,14 @@ package org.example.codefab.assembler;
 import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
 import org.example.codefab.error.ParseError;
-import org.example.codefab.token.Token;
 import org.example.codefab.token.TokenType;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@ExtendWith(MockitoExtension.class)
 class ParserTest {
 
 //    @Mock
@@ -125,52 +119,52 @@ class ParserTest {
         assertInstanceOf(Stmt.Block.class, forStmt.body);
     }
 
-//    @Test void forWithEmptyInit() {
-//        assertDoesNotThrow(() -> parse("for (; true; ) { print 1; }"));
-//    }
-//
-//    @Test void forBodyMustBeBlock() {
-//        assertThrows(ParseError.class, () -> parse("for (var i = 0; i < 1; i = i + 1) print i;"));
-//    }
-//
-//    // ── if / else ─────────────────────────────────────────────────────────────
-//
-//    @Test void ifWithoutElse() {
-//        var stmts = parse("if (true) print 1;");
-//        var ifStmt = (Stmt.If) stmts.get(0);
-//        assertNull(ifStmt.elseBranch);
-//    }
-//
-//    @Test void ifWithElse() {
-//        var stmts = parse("if (false) print 1; else print 2;");
-//        var ifStmt = (Stmt.If) stmts.get(0);
-//        assertNotNull(ifStmt.elseBranch);
-//    }
-//
-//    @Test void danglingElseBindsToNearestIf() {
-//        // if (true) if (false) print 1; else print 2;
-//        // The else belongs to the INNER if
-//        var stmts = parse("if (true) if (false) print 1; else print 2;");
-//        var outer = (Stmt.If) stmts.get(0);
-//        assertNull(outer.elseBranch); // outer if has NO else
-//        var inner = (Stmt.If) outer.thenBranch;
-//        assertNotNull(inner.elseBranch); // inner if has the else
-//    }
-//
-//    // ── Parse error messages ──────────────────────────────────────────────────
-//
-//    @Test void missingSemicolonMessage() {
-//        var ex = assertThrows(ParseError.class, () -> parse("print 1 + 2"));
-//        assertTrue(ex.getMessage().contains("';'"), "Expected ';' message, got: " + ex.getMessage());
-//    }
-//
-//    @Test void missingClosingParenMessage() {
-//        var ex = assertThrows(ParseError.class, () -> parse("print (1 + 2;"));
-//        assertTrue(ex.getMessage().contains("')'"), "Expected ')' message, got: " + ex.getMessage());
-//    }
-//
-//    @Test void expectExpressionMessage() {
-//        var ex = assertThrows(ParseError.class, () -> parse("print * 5;"));
-//        assertTrue(ex.getMessage().contains("expression"), "Expected 'expression' message, got: " + ex.getMessage());
-//    }
+    @Test void forWithEmptyInit() {
+        assertDoesNotThrow(() -> parse("for (; true; ) { print 1; }"));
+    }
+
+    @Test void forBodyMustBeBlock() {
+        assertThrows(ParseError.class, () -> parse("for (var i = 0; i < 1; i = i + 1) print i;"));
+    }
+
+    // ── if / else ─────────────────────────────────────────────────────────────
+
+    @Test void ifWithoutElse() {
+        var stmts = parse("if (true) print 1;");
+        var ifStmt = (Stmt.If) stmts.get(0);
+        assertNull(ifStmt.elseBranch);
+    }
+
+    @Test void ifWithElse() {
+        var stmts = parse("if (false) print 1; else print 2;");
+        var ifStmt = (Stmt.If) stmts.get(0);
+        assertNotNull(ifStmt.elseBranch);
+    }
+
+    @Test void danglingElseBindsToNearestIf() {
+        // if (true) if (false) print 1; else print 2;
+        // The else belongs to the INNER if
+        var stmts = parse("if (true) if (false) print 1; else print 2;");
+        var outer = (Stmt.If) stmts.get(0);
+        assertNull(outer.elseBranch); // outer if has NO else
+        var inner = (Stmt.If) outer.thenBranch;
+        assertNotNull(inner.elseBranch); // inner if has the else
+    }
+
+    // ── Parse error messages ──────────────────────────────────────────────────
+
+    @Test void missingSemicolonMessage() {
+        var ex = assertThrows(ParseError.class, () -> parse("print 1 + 2"));
+        assertTrue(ex.getMessage().contains("';'"), "Expected ';' message, got: " + ex.getMessage());
+    }
+
+    @Test void missingClosingParenMessage() {
+        var ex = assertThrows(ParseError.class, () -> parse("print (1 + 2;"));
+        assertTrue(ex.getMessage().contains("')'"), "Expected ')' message, got: " + ex.getMessage());
+    }
+
+    @Test void expectExpressionMessage() {
+        var ex = assertThrows(ParseError.class, () -> parse("print * 5;"));
+        assertTrue(ex.getMessage().contains("expression"), "Expected 'expression' message, got: " + ex.getMessage());
+    }
 }

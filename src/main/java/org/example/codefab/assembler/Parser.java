@@ -39,6 +39,7 @@ public class Parser {
 
     private Stmt statement() {
         if (match(TokenType.VAR)) return varDeclaration();
+        if (match(TokenType.IF)) return ifStatement();
         if (match(TokenType.FOR)) return forStatement();
         if (match(TokenType.PRINT)) return printStatement();
         if (match(TokenType.LEFT_BRACE)) return block();
@@ -59,8 +60,14 @@ public class Parser {
      * if ( expression ) statement ( else statement )?
      */
     private Stmt ifStatement() {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement ifStatement");
+        consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
+        Expr condition = expression();
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after if condition.");
+
+        Stmt thenBranch = statement();
+        Stmt elseBranch = match(TokenType.ELSE) ? statement() : null;
+
+        return new Stmt.If(condition, thenBranch, elseBranch);
     }
 
     /**
