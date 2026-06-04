@@ -75,6 +75,18 @@ class ParserTest {
     }
 
     @Test
+    void greaterEqualProducesComparisonNode() {
+        var cmp = (Expr.Comparison) getStatement("print 3 >= 3;", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.GREATER_EQUAL, cmp.op.type());
+    }
+
+    @Test
+    void lessEqualProducesComparisonNode() {
+        var cmp = (Expr.Comparison) getStatement("print 2 <= 5;", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.LESS_EQUAL, cmp.op.type());
+    }
+
+    @Test
     void andBindsTighterThanOr() {
         // a or b and c → Logical(a, or, Logical(b, and, c))
         var outer = (Expr.Logical) getStatement("print 1 or 2 and 3;", 0, Stmt.Print.class).expression;
@@ -82,7 +94,7 @@ class ParserTest {
         assertInstanceOf(Expr.Logical.class, outer.right);
     }
 
-    // ── Unary minus ───────────────────────────────────────────────────────────
+    // ── Unary minus / bang ────────────────────────────────────────────────────
 
     @Test
     void unaryMinusProducesUnaryNode() {
@@ -94,6 +106,27 @@ class ParserTest {
     void doubleUnaryMinus() {
         var outer = (Expr.Unary) getStatement("print --5;", 0, Stmt.Print.class).expression;
         assertInstanceOf(Expr.Unary.class, outer.operand);
+    }
+
+    @Test
+    void unaryBangProducesUnaryNode() {
+        var unary = (Expr.Unary) getStatement("print !true;", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.BANG, unary.op.type());
+        assertInstanceOf(Expr.Literal.class, unary.operand);
+    }
+
+    @Test
+    void doubleUnaryBang() {
+        var outer = (Expr.Unary) getStatement("print !!false;", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.BANG, outer.op.type());
+        assertInstanceOf(Expr.Unary.class, outer.operand);
+    }
+
+    @Test
+    void bangOnGrouping() {
+        var unary = (Expr.Unary) getStatement("print !(1 < 2);", 0, Stmt.Print.class).expression;
+        assertEquals(TokenType.BANG, unary.op.type());
+        assertInstanceOf(Expr.Grouping.class, unary.operand);
     }
 
     // ── String literal ───────────────────────────────────────────────────────
@@ -119,6 +152,14 @@ class ParserTest {
         var varStmt = getStatement("var s = \"hi\";", 0, Stmt.Var.class);
         var lit = (Expr.Literal) varStmt.initializer;
         assertEquals("hi", lit.value);
+    }
+
+    @Test
+    void varDeclWithoutInitializerHasNullInitializer() {
+        // var x; — EQUAL 미매칭 → initializer = null 분기
+        var varStmt = getStatement("var x;", 0, Stmt.Var.class);
+        assertEquals("x", varStmt.name.origin());
+        assertNull(varStmt.initializer);
     }
 
     // ── Assignment ────────────────────────────────────────────────────────────
@@ -159,8 +200,47 @@ class ParserTest {
     }
 
     @Test
+    void forWithExpressionInit() {
+        // 이미 선언된 변수를 초기화식으로 사용 — else initializer = expressionStatement() 경로
+        var forStmt = getStatement("var i = 0; for (i = 5; i < 10; i = i + 1) { print i; }", 1, Stmt.For.class);
+        assertInstanceOf(Stmt.Expression.class, forStmt.initializer);
+        var assign = (Expr.Assign) ((Stmt.Expression) forStmt.initializer).expression;
+        assertEquals("i", assign.name.origin());
+    }
+
+    @Test
     void forBodyMustBeBlock() {
         assertThrows(ParseError.class, () -> parse("for (var i = 0; i < 1; i = i + 1) print i;"));
+    }
+
+    @Test
+    void forWithNullCondition() {
+        // for (var i = 0; ; ) — condition 생략 시 check(SEMICOLON) true 분기
+        var forStmt = getStatement("for (var i = 0; ; ) { print 1; }", 0, Stmt.For.class);
+        assertNull(forStmt.condition);
+    }
+
+    // ── block statement ──────────────────────────────────────────────────────
+
+    @Test
+    void standaloneBlockProducesBlockNode() {
+        // { print 1; } — statement()에서 LEFT_BRACE true 분기 직접 진입
+        var block = getStatement("{ print 1; }", 0, Stmt.Block.class);
+        assertEquals(1, block.statements.size());
+        assertInstanceOf(Stmt.Print.class, block.statements.get(0));
+    }
+
+    @Test
+    void unclosedBlockThrowsParseError() {
+        // EOF에 도달 시 block()의 while 조건에서 isAtEnd() true 분기 경유
+        assertThrows(ParseError.class, () -> parse("{ print 1;"));
+    }
+
+    @Test
+    void ifWithBlockBodyEntersLeftBraceBranch() {
+        // thenBranch가 블록일 때 statement() → LEFT_BRACE true 분기 경유
+        var ifStmt = getStatement("if (true) { print 1; }", 0, Stmt.If.class);
+        assertInstanceOf(Stmt.Block.class, ifStmt.thenBranch);
     }
 
     // ── if / else ─────────────────────────────────────────────────────────────
