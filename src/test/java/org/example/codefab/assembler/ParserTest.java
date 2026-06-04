@@ -154,6 +154,14 @@ class ParserTest {
         assertEquals("hi", lit.value);
     }
 
+    @Test
+    void varDeclWithoutInitializerHasNullInitializer() {
+        // var x; — EQUAL 미매칭 → initializer = null 분기
+        var varStmt = getStatement("var x;", 0, Stmt.Var.class);
+        assertEquals("x", varStmt.name.origin());
+        assertNull(varStmt.initializer);
+    }
+
     // ── Assignment ────────────────────────────────────────────────────────────
 
     @Test
@@ -192,8 +200,47 @@ class ParserTest {
     }
 
     @Test
+    void forWithExpressionInit() {
+        // 이미 선언된 변수를 초기화식으로 사용 — else initializer = expressionStatement() 경로
+        var forStmt = getStatement("var i = 0; for (i = 5; i < 10; i = i + 1) { print i; }", 1, Stmt.For.class);
+        assertInstanceOf(Stmt.Expression.class, forStmt.initializer);
+        var assign = (Expr.Assign) ((Stmt.Expression) forStmt.initializer).expression;
+        assertEquals("i", assign.name.origin());
+    }
+
+    @Test
     void forBodyMustBeBlock() {
         assertThrows(ParseError.class, () -> parse("for (var i = 0; i < 1; i = i + 1) print i;"));
+    }
+
+    @Test
+    void forWithNullCondition() {
+        // for (var i = 0; ; ) — condition 생략 시 check(SEMICOLON) true 분기
+        var forStmt = getStatement("for (var i = 0; ; ) { print 1; }", 0, Stmt.For.class);
+        assertNull(forStmt.condition);
+    }
+
+    // ── block statement ──────────────────────────────────────────────────────
+
+    @Test
+    void standaloneBlockProducesBlockNode() {
+        // { print 1; } — statement()에서 LEFT_BRACE true 분기 직접 진입
+        var block = getStatement("{ print 1; }", 0, Stmt.Block.class);
+        assertEquals(1, block.statements.size());
+        assertInstanceOf(Stmt.Print.class, block.statements.get(0));
+    }
+
+    @Test
+    void unclosedBlockThrowsParseError() {
+        // EOF에 도달 시 block()의 while 조건에서 isAtEnd() true 분기 경유
+        assertThrows(ParseError.class, () -> parse("{ print 1;"));
+    }
+
+    @Test
+    void ifWithBlockBodyEntersLeftBraceBranch() {
+        // thenBranch가 블록일 때 statement() → LEFT_BRACE true 분기 경유
+        var ifStmt = getStatement("if (true) { print 1; }", 0, Stmt.If.class);
+        assertInstanceOf(Stmt.Block.class, ifStmt.thenBranch);
     }
 
     // ── if / else ─────────────────────────────────────────────────────────────
