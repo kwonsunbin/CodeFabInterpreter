@@ -64,7 +64,7 @@ class EndToEndTest {
             System.setOut(saved);
         }
 
-        return new Result(baos.toString().strip(), checkErrors, runtimeError);
+        return new Result(baos.toString().replace("\r\n", "\n").strip(), checkErrors, runtimeError);
     }
 
     /** Run multiple source strings sequentially on the SAME checker/executor
@@ -84,7 +84,7 @@ class EndToEndTest {
             System.out.flush();
             System.setOut(saved);
         }
-        return baos.toString().strip();
+        return baos.toString().replace("\r\n", "\n").strip();
     }
 
     // ════════════════════════════════════════════════════════════════════════
