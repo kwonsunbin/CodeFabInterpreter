@@ -174,7 +174,7 @@ public class Parser {
             consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
             return new Expr.Grouping(expr);
         }
-        // TODO: STRING
+        if (match(TokenType.STRING)) return new Expr.Literal(previous().value());
         throw new ParseError(peek().line(), "Expect expression.");
     }
 

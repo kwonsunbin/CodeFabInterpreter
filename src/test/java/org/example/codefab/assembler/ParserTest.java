@@ -96,6 +96,31 @@ class ParserTest {
         assertInstanceOf(Expr.Unary.class, outer.operand);
     }
 
+    // ── String literal ───────────────────────────────────────────────────────
+
+    @Test
+    void stringLiteralProducesLiteralNode() {
+        var print = getStatement("print \"hello\";", 0, Stmt.Print.class);
+        var lit = (Expr.Literal) print.expression;
+        assertEquals("hello", lit.value);
+    }
+
+    @Test
+    void stringConcatProducesBinaryNodeWithStringChildren() {
+        var print = getStatement("print \"a\" + \"b\";", 0, Stmt.Print.class);
+        var binary = (Expr.Binary) print.expression;
+        assertEquals(TokenType.PLUS, binary.op.type());
+        assertEquals("a", ((Expr.Literal) binary.left).value);
+        assertEquals("b", ((Expr.Literal) binary.right).value);
+    }
+
+    @Test
+    void varDeclWithStringInitializer() {
+        var varStmt = getStatement("var s = \"hi\";", 0, Stmt.Var.class);
+        var lit = (Expr.Literal) varStmt.initializer;
+        assertEquals("hi", lit.value);
+    }
+
     // ── Assignment ────────────────────────────────────────────────────────────
 
     @Test
