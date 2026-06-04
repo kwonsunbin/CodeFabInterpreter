@@ -72,19 +72,21 @@ public class Shell {
         }
     }
 
+    private void printDiagnostics(List<Diagnostic> diagnostics) {
+        for (Diagnostic d : diagnostics) {
+            out.println(d);
+        }
+    }
+
     private void runPipeline(String source) {
         try {
             List<Stmt> program = assembler.assemble(source);
             CheckResult cr = checker.check(program);
 
-            for (Diagnostic d : cr.warnings) {
-                out.println(d);
-            }
+            printDiagnostics(cr.warnings);
 
             if (!cr.ok()) {
-                for (Diagnostic d : cr.errors) {
-                    out.println(d);
-                }
+                printDiagnostics(cr.errors);
                 return;
             }
 
