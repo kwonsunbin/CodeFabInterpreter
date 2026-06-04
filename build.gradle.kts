@@ -1,6 +1,7 @@
 plugins {
     id("java")
     application
+    jacoco
 }
 
 group = "org.example"

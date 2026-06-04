@@ -127,4 +127,62 @@ class LexerTest {
     @Test void unexpectedCharacterThrows() {
         assertThrows(LexError.class, () -> lex("@"));
     }
+
+    // ── Branch coverage additions ─────────────────────────────────────────────
+
+    @Test void multilineStringIncrementsLine() {
+        // peek() == '\n' true-branch inside string()
+        var tokens = lex("\"hello\nworld\"");
+        assertEquals(TokenType.STRING, tokens.get(0).type());
+        assertEquals("hello\nworld",  tokens.get(0).value());
+        assertEquals(2, tokens.get(1).line()); // EOF lands on line 2
+    }
+
+    @Test void integerAtEndOfInput() {
+        // number(): L104 while exits immediately because isAtEnd=true
+        // number(): L105 if short-circuits because !isAtEnd=false
+        var tokens = lex("4");
+        assertEquals(TokenType.NUMBER, tokens.get(0).type());
+        assertEquals(4.0, (Double) tokens.get(0).value(), 1e-9);
+    }
+
+    @Test void floatFollowedByToken() {
+        // number(): L107 inner while exits via isDigit=false (non-EOF char follows)
+        var tokens = lex("3.14;");
+        assertEquals(TokenType.NUMBER,    tokens.get(0).type());
+        assertEquals(3.14,               (Double) tokens.get(0).value(), 1e-9);
+        assertEquals(TokenType.SEMICOLON, tokens.get(1).type());
+    }
+
+    @Test void numberDotNotFollowedByDigitThrows() {
+        // peekNext() returns '\0' (current+1 >= length), isDigit('\0')=false
+        // → decimal branch skipped; '.' then throws as unexpected char
+        assertThrows(LexError.class, () -> lex("1."));
+    }
+
+    @Test void uppercaseIdentifier() {
+        // isAlpha: c >= 'A' = true, c <= 'Z' = true
+        var tokens = lex("MyVar");
+        assertEquals(TokenType.IDENTIFIER, tokens.get(0).type());
+        assertEquals("MyVar",             tokens.get(0).origin());
+    }
+
+    @Test void underscoreIdentifier() {
+        // isAlpha: c <= 'Z' = false, c == '_' = true
+        var tokens = lex("_count");
+        assertEquals(TokenType.IDENTIFIER, tokens.get(0).type());
+        assertEquals("_count",            tokens.get(0).origin());
+    }
+
+    @Test void charAboveLowercaseRangeThrows() {
+        // isAlpha: c >= 'a' = true ('~'=126), c <= 'z' = false → returns false → LexError
+        assertThrows(LexError.class, () -> lex("~"));
+    }
+
+    @Test void identifierWithDigit() {
+        // isAlphaNumeric: isAlpha=false && isDigit=true path (digit inside identifier)
+        var tokens = lex("x1");
+        assertEquals(TokenType.IDENTIFIER, tokens.get(0).type());
+        assertEquals("x1",                tokens.get(0).origin());
+    }
 }
