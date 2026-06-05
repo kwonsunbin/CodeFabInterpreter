@@ -147,7 +147,8 @@ public class Parser {
     private Expr comparison() {
         return leftAssoc(this::term, Expr.Comparison::new,
                 TokenType.GREATER, TokenType.GREATER_EQUAL,
-                TokenType.LESS, TokenType.LESS_EQUAL);
+                TokenType.LESS, TokenType.LESS_EQUAL,
+                TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL);
     }
 
     private Expr term() {

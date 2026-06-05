@@ -286,4 +286,16 @@ class ParserTest {
         var ex = assertThrows(ParseError.class, () -> parse("print * 5;"));
         assertTrue(ex.getMessage().contains("expression"), "Expected 'expression' message, got: " + ex.getMessage());
     }
+
+    @Test
+    void equalEqualTest(){
+        var ifStmt = getStatement("if (5 == 5) print \"bbq\";", 0, Stmt.If.class);
+        assertInstanceOf(Expr.Comparison.class, ifStmt.condition);
+    }
+
+    @Test
+    void bangEqualTest(){
+        var ifStmt = getStatement("if (5 != 5) print \"bbq\";", 0, Stmt.If.class);
+        assertInstanceOf(Expr.Comparison.class, ifStmt.condition);
+    }
 }
