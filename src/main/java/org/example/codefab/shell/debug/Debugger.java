@@ -4,6 +4,9 @@ import org.example.codefab.ast.Stmt;
 import org.example.codefab.checker.CheckResult;
 import org.example.codefab.checker.Diagnostic;
 import org.example.codefab.error.CodeFabError;
+import org.example.codefab.executor.Environment;
+import org.example.codefab.executor.ExecutionListener;
+import org.example.codefab.executor.Executor;
 import org.example.codefab.shell.Pipeline;
 
 import java.io.*;
@@ -15,23 +18,23 @@ import java.util.*;
 /**
  * Debug shell: 소스를 구문(Stmt) 단위로 멈추며 실행 상태를 점검하는 모드.
  *
- * [현재 단계 — 스켈레톤]
- * - 파일 읽기 및 파이프라인 실행은 동작함 (FileRunner와 동일 흐름)
- * - 명령어 파싱 구조(commandLoop)만 뼈대로 존재
- * - step/next/continue/break/watch 등 실제 정지 로직은 미구현
- *   → Executor 훅(ExecutionListener) 연동 후 완성 예정
+ * Observer 패턴:
+ *   Executor(Observable) → onStatement() → Debugger(Observer) → commandLoop()
  *
- * [향후 연동 계획]
- * - Executor.setListener(this) 로 구문 실행 직전 콜백 수신
- * - onStatement(Stmt) 에서 정지 여부 판단 후 commandLoop 진입
+ * 정지 모드:
+ *   STEP     — 매 구문마다 정지 (블록 내부로 진입)
+ *   NEXT     — 현재 스코프 깊이에서만 정지 (블록/함수 내부 미진입)
+ *   CONTINUE — 다음 breakpoint 라인까지 연속 실행
  */
-public class Debugger {
+public class Debugger implements ExecutionListener {
 
     // ── 정지 모드 ─────────────────────────────────────────────────────────────
 
     private enum Mode { STEP, NEXT, CONTINUE }
 
-    private Mode mode = Mode.STEP;
+    private Mode mode       = Mode.STEP;
+    private int  scopeDepth = 0;
+    private int  pauseDepth = 0;
 
     // ── 상태 ──────────────────────────────────────────────────────────────────
 
@@ -87,24 +90,45 @@ public class Debugger {
         out.println("[debug] 디버그 모드 시작.");
         out.println("[debug] 명령어: step / next / continue / break <줄> / breakpoints / remove <줄>");
         out.println("[debug]         watch <변수> / unwatch <변수> / watches / inspect");
-        out.println("[debug] ※ 현재 정지 기능 미연동 — 프로그램을 끝까지 실행합니다.");
 
-        // TODO: Executor 훅 연동 후 아래를 listener 기반 실행으로 교체
+        Executor executor = pipeline.executor();
+        executor.setListener(this);
         try {
-            pipeline.executor().run(program);
+            executor.run(program);
+            out.println("[debug] 프로그램 종료.");
         } catch (CodeFabError e) {
             out.println(e.userMessage());
+        } finally {
+            executor.setListener(null);
         }
-
-        out.println("[debug] 프로그램 종료.");
     }
 
-    // ── 명령어 루프 (스켈레톤) ────────────────────────────────────────────────
+    // ── ExecutionListener (Observer) ──────────────────────────────────────────
 
-    /**
-     * 각 구문 실행 직전에 호출될 명령 루프.
-     * Executor 훅 연동 전까지는 직접 호출되지 않음.
-     */
+    @Override
+    public void onStatement(Stmt stmt) {
+        int line = lineOf(stmt);
+
+        boolean shouldPause = switch (mode) {
+            case STEP     -> true;
+            case NEXT     -> scopeDepth <= pauseDepth;
+            case CONTINUE -> line >= 0 && breakpoints.contains(line);
+        };
+
+        if (shouldPause) {
+            pauseDepth = scopeDepth;
+            commandLoop(line);
+        }
+    }
+
+    @Override
+    public void onEnterScope() { scopeDepth++; }
+
+    @Override
+    public void onExitScope()  { scopeDepth--; }
+
+    // ── 명령어 루프 ───────────────────────────────────────────────────────────
+
     void commandLoop(int line) {
         out.println("[debug] 정지 — line " + (line < 0 ? "?" : line));
         printWatchValues();
@@ -126,8 +150,8 @@ public class Debugger {
             String   arg   = parts.length > 1 ? parts[1].strip() : "";
 
             switch (cmd) {
-                case "step"     -> { mode = Mode.STEP;     return; }
-                case "next"     -> { mode = Mode.NEXT;     return; }
+                case "step"     -> { mode = Mode.STEP; return; }
+                case "next"     -> { mode = Mode.NEXT; pauseDepth = scopeDepth; return; }
                 case "continue" -> { mode = Mode.CONTINUE; return; }
 
                 case "break" -> {
@@ -165,8 +189,7 @@ public class Debugger {
                 }
                 case "watches" -> printWatchValues();
 
-                // TODO: Executor 환경 접근 연동 후 구현
-                case "inspect" -> out.println("[debug] inspect: Executor 훅 연동 후 구현 예정");
+                case "inspect" -> printInspect();
 
                 case "" -> { /* 빈 줄 무시 */ }
                 default  -> out.println("알 수 없는 명령어: '" + cmd + "'");
@@ -174,11 +197,32 @@ public class Debugger {
         }
     }
 
-    // ── 출력 헬퍼 (스켈레톤) ─────────────────────────────────────────────────
+    // ── 출력 헬퍼 ─────────────────────────────────────────────────────────────
 
     private void printWatchValues() {
         if (watches.isEmpty()) return;
-        // TODO: Executor 환경 접근 연동 후 실제 값 출력
-        watches.forEach(name -> out.println("  watch " + name + " = (연동 전)"));
+        Environment env = pipeline.executor().getEnvironment();
+        for (String name : watches) {
+            String val = env.has(name)
+                    ? Executor.stringify(env.getByName(name))
+                    : "(정의되지 않음)";
+            out.println("  watch " + name + " = " + val);
+        }
+    }
+
+    private void printInspect() {
+        Map<String, Object> vars = pipeline.executor().getEnvironment().snapshot();
+        if (vars.isEmpty()) {
+            out.println("(현재 스코프에 변수 없음)");
+        } else {
+            vars.forEach((k, v) -> out.println("  " + k + " = " + Executor.stringify(v)));
+        }
+    }
+
+    // ── 유틸 ──────────────────────────────────────────────────────────────────
+
+    private int lineOf(Stmt stmt) {
+        if (stmt instanceof Stmt.Var s) return s.name.line();
+        return -1;
     }
 }
