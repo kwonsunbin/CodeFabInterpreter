@@ -2,6 +2,8 @@ package org.example.codefab.shell;
 
 import org.example.codefab.assembler.Assembler;
 import org.example.codefab.checker.Checker;
+import org.example.codefab.checker.CheckerDepth;
+import org.example.codefab.checker.CheckerFold;
 import org.example.codefab.executor.Executor;
 import org.example.codefab.log.Logger;
 import org.junit.jupiter.api.AfterEach;
@@ -26,7 +28,9 @@ class PipelineTest {
         System.setOut(new PrintStream(outBytes));
 
         Logger log = new Logger(false);
-        pipeline = new Pipeline(new Assembler(), new Checker(), new Executor(log), log, System.out);
+        pipeline = new Pipeline(new Assembler(), new Checker(),
+                new CheckerDepth(), new CheckerFold(),
+                new Executor(log), log, System.out);
     }
 
     @AfterEach

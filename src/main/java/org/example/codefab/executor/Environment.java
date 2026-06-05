@@ -53,4 +53,20 @@ public class Environment {
         if (enclosing != null) { enclosing.assign(name, value); return; }
         throw new RuntimeError(name, "Undefined variable '" + name.origin() + "'.");
     }
+
+    /** O(1) read: jump directly to the environment 'distance' hops up. */
+    public Object getAt(int distance, String name) {
+        return ancestor(distance).values.get(name);
+    }
+
+    /** O(1) write: jump directly to the environment 'distance' hops up. */
+    public void setAt(int distance, String name, Object value) {
+        ancestor(distance).values.put(name, value);
+    }
+
+    private Environment ancestor(int distance) {
+        Environment env = this;
+        for (int i = 0; i < distance; i++) env = env.enclosing;
+        return env;
+    }
 }

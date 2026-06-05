@@ -109,24 +109,31 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
     }
 
     @Override
-    public Object visitGrouping(Expr.Grouping expr) {
-        return evaluate(expr.expression);
-    }
-
-    @Override
     public Object visitVariable(Expr.Variable expr) {
+        if (expr.depth >= 0) return environment.getAt(expr.depth, expr.name.origin());
         return environment.get(expr.name);
     }
 
     @Override
     public Object visitAssign(Expr.Assign expr) {
         Object value = evaluate(expr.value);
-        environment.assign(expr.name, value);
+        if (expr.depth >= 0) {
+            environment.setAt(expr.depth, expr.name.origin(), value);
+        } else {
+            environment.assign(expr.name, value);
+        }
         return value;
     }
 
     @Override
+    public Object visitGrouping(Expr.Grouping expr) {
+        if (expr.foldedValue != null) return expr.foldedValue;
+        return evaluate(expr.expression);
+    }
+
+    @Override
     public Object visitUnary(Expr.Unary expr) {
+        if (expr.foldedValue != null) return expr.foldedValue;
         Object operand = evaluate(expr.operand);
         return switch (expr.op.type()) {
             case MINUS -> { checkNumberOperand(expr.op, operand); yield -(double) operand; }
@@ -137,6 +144,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Object visitBinary(Expr.Binary expr) {
+        if (expr.foldedValue != null) return expr.foldedValue;
         Object left  = evaluate(expr.left);
         Object right = evaluate(expr.right);
         return switch (expr.op.type()) {
@@ -158,6 +166,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Object visitComparison(Expr.Comparison expr) {
+        if (expr.foldedValue != null) return expr.foldedValue;
         Object left  = evaluate(expr.left);
         Object right = evaluate(expr.right);
         checkNumberOperands(expr.op, left, right);
@@ -172,6 +181,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Object visitLogical(Expr.Logical expr) {
+        if (expr.foldedValue != null) return expr.foldedValue;
         Object left = evaluate(expr.left);
         if (expr.op.type() == TokenType.OR) {
             if (isTruthy(left)) return left;
