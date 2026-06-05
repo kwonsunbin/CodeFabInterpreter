@@ -139,30 +139,6 @@ public class Checker implements Stmt.Visitor<Void> {
         return null;
     }
 
-    @Override
-    public Void visitFunction(Stmt.Function stmt) {
-        Scope cur = scopes.peek();
-        if (!cur.has(stmt.name.origin())) {
-            cur.declare(stmt.name.origin());
-            cur.define(stmt.name.origin());
-        }
-        beginScope();
-        for (Token param : stmt.params) {
-            Scope s = scopes.peek();
-            s.declare(param.origin());
-            s.define(param.origin());
-        }
-        for (Stmt s : stmt.body) execute(s);
-        endScope();
-        return null;
-    }
-
-    @Override
-    public Void visitReturn(Stmt.Return stmt) {
-        if (stmt.value != null) scanExpr(stmt.value);
-        return null;
-    }
-
     // ── Expression scanner ────────────────────────────────────────────────────
     // Enforces variable-scope rules, records depth on Variable/Assign nodes,
     // and pre-computes constant expressions via constant folding.
