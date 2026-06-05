@@ -13,18 +13,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ParserTest {
 
-    Lexer lexer;
-
-
     private List<Stmt> parse(String src) {
-        return new Assembler(lexer).assemble(src);
+        return new Assembler().assemble(src);
     }
-
 
     private <T extends Stmt> T getStatement(String src, int i, Class<T> type) {
         return type.cast(parse(src).get(i));
     }
 
+    private Expr printExpr(String src) {
+        return getStatement(src, 0, Stmt.Print.class).expression;
+    }
 
     // ── Architecture rule: Expr must never contain a Stmt field ──────────────
 
@@ -46,7 +45,7 @@ class ParserTest {
     @Test
     void multiplicationBeforeAddition() {
         // 1 + 2 * 3  →  Binary(1, +, Binary(2, *, 3))
-        var outer = (Expr.Binary) getStatement("print 1 + 2 * 3;", 0, Stmt.Print.class).expression;
+        var outer = (Expr.Binary) printExpr("print 1 + 2 * 3;");
         assertEquals(TokenType.PLUS, outer.op.type());
         var inner = (Expr.Binary) outer.right;
         assertEquals(TokenType.STAR, inner.op.type());
@@ -55,7 +54,7 @@ class ParserTest {
     @Test
     void groupingOverridesPrecedence() {
         // print (1 + 2) * 3;  →  Binary(Grouping(Binary(1,+,2)), *, 3)
-        var outer = (Expr.Binary) getStatement("print (1 + 2) * 3;", 0, Stmt.Print.class).expression;
+        var outer = (Expr.Binary) printExpr("print (1 + 2) * 3;");
         assertEquals(TokenType.STAR, outer.op.type());
         assertInstanceOf(Expr.Grouping.class, outer.left);
     }
@@ -63,33 +62,32 @@ class ParserTest {
     @Test
     void leftAssociativity() {
         // 10 - 4 - 3 → Binary(Binary(10, -, 4), -, 3)
-        var outer = (Expr.Binary) getStatement("print 10 - 4 - 3;", 0, Stmt.Print.class).expression;
+        var outer = (Expr.Binary) printExpr("print 10 - 4 - 3;");
         assertInstanceOf(Expr.Binary.class, outer.left);
     }
 
     @Test
     void comparisonBindsLooserThanTerm() {
         // 1 + 2 < 3 + 4  →  Comparison(Binary(1,+,2), <, Binary(3,+,4))
-        var outer = getStatement("print 1 + 2 < 3 + 4;", 0, Stmt.Print.class).expression;
-        assertInstanceOf(Expr.Comparison.class, outer);
+        assertInstanceOf(Expr.Comparison.class, printExpr("print 1 + 2 < 3 + 4;"));
     }
 
     @Test
     void greaterEqualProducesComparisonNode() {
-        var cmp = (Expr.Comparison) getStatement("print 3 >= 3;", 0, Stmt.Print.class).expression;
+        var cmp = (Expr.Comparison) printExpr("print 3 >= 3;");
         assertEquals(TokenType.GREATER_EQUAL, cmp.op.type());
     }
 
     @Test
     void lessEqualProducesComparisonNode() {
-        var cmp = (Expr.Comparison) getStatement("print 2 <= 5;", 0, Stmt.Print.class).expression;
+        var cmp = (Expr.Comparison) printExpr("print 2 <= 5;");
         assertEquals(TokenType.LESS_EQUAL, cmp.op.type());
     }
 
     @Test
     void andBindsTighterThanOr() {
         // a or b and c → Logical(a, or, Logical(b, and, c))
-        var outer = (Expr.Logical) getStatement("print 1 or 2 and 3;", 0, Stmt.Print.class).expression;
+        var outer = (Expr.Logical) printExpr("print 1 or 2 and 3;");
         assertEquals(TokenType.OR, outer.op.type());
         assertInstanceOf(Expr.Logical.class, outer.right);
     }
@@ -98,33 +96,33 @@ class ParserTest {
 
     @Test
     void unaryMinusProducesUnaryNode() {
-        var outer = (Expr.Unary) getStatement("print -5;", 0, Stmt.Print.class).expression;
-        assertInstanceOf(Expr.Unary.class, outer);
+        var unary = (Expr.Unary) printExpr("print -5;");
+        assertEquals(TokenType.MINUS, unary.op.type());
     }
 
     @Test
     void doubleUnaryMinus() {
-        var outer = (Expr.Unary) getStatement("print --5;", 0, Stmt.Print.class).expression;
+        var outer = (Expr.Unary) printExpr("print --5;");
         assertInstanceOf(Expr.Unary.class, outer.operand);
     }
 
     @Test
     void unaryBangProducesUnaryNode() {
-        var unary = (Expr.Unary) getStatement("print !true;", 0, Stmt.Print.class).expression;
+        var unary = (Expr.Unary) printExpr("print !true;");
         assertEquals(TokenType.BANG, unary.op.type());
         assertInstanceOf(Expr.Literal.class, unary.operand);
     }
 
     @Test
     void doubleUnaryBang() {
-        var outer = (Expr.Unary) getStatement("print !!false;", 0, Stmt.Print.class).expression;
+        var outer = (Expr.Unary) printExpr("print !!false;");
         assertEquals(TokenType.BANG, outer.op.type());
         assertInstanceOf(Expr.Unary.class, outer.operand);
     }
 
     @Test
     void bangOnGrouping() {
-        var unary = (Expr.Unary) getStatement("print !(1 < 2);", 0, Stmt.Print.class).expression;
+        var unary = (Expr.Unary) printExpr("print !(1 < 2);");
         assertEquals(TokenType.BANG, unary.op.type());
         assertInstanceOf(Expr.Grouping.class, unary.operand);
     }
@@ -133,15 +131,13 @@ class ParserTest {
 
     @Test
     void stringLiteralProducesLiteralNode() {
-        var print = getStatement("print \"hello\";", 0, Stmt.Print.class);
-        var lit = (Expr.Literal) print.expression;
+        var lit = (Expr.Literal) printExpr("print \"hello\";");
         assertEquals("hello", lit.value);
     }
 
     @Test
     void stringConcatProducesBinaryNodeWithStringChildren() {
-        var print = getStatement("print \"a\" + \"b\";", 0, Stmt.Print.class);
-        var binary = (Expr.Binary) print.expression;
+        var binary = (Expr.Binary) printExpr("print \"a\" + \"b\";");
         assertEquals(TokenType.PLUS, binary.op.type());
         assertEquals("a", ((Expr.Literal) binary.left).value);
         assertEquals("b", ((Expr.Literal) binary.right).value);
@@ -179,8 +175,12 @@ class ParserTest {
 
     @Test
     void rightAssociativeAssignment() {
-        // var a = 1; var b = 1; a = b = 5; — should parse without error
-        assertDoesNotThrow(() -> parse("var a = 1; var b = 1; a = b = 5;"));
+        // a = b = 5 → Assign(a, Assign(b, 5)) — 오른쪽부터 결합
+        var stmts = parse("var a = 1; var b = 1; a = b = 5;");
+        var outer = (Expr.Assign) ((Stmt.Expression) stmts.get(2)).expression;
+        assertEquals("a", outer.name.origin());
+        var inner = (Expr.Assign) outer.value;
+        assertEquals("b", inner.name.origin());
     }
 
     // ── for statement ─────────────────────────────────────────────────────────
