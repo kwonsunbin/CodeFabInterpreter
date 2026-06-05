@@ -147,7 +147,8 @@ public class Parser {
     private Expr comparison() {
         return leftAssoc(this::term, Expr.Comparison::new,
                 TokenType.GREATER, TokenType.GREATER_EQUAL,
-                TokenType.LESS, TokenType.LESS_EQUAL);
+                TokenType.LESS, TokenType.LESS_EQUAL,
+                TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL);
     }
 
     private Expr term() {
@@ -167,16 +168,14 @@ public class Parser {
      * primary = NUMBER | STRING | true | false | IDENTIFIER | ( expression )
      */
     private Expr primary() {
-        if (match(TokenType.NUMBER)) return new Expr.Literal(previous().value(), previous().line());
-        if (match(TokenType.TRUE)) return new Expr.Literal(Boolean.TRUE, previous().line());
-        if (match(TokenType.FALSE)) return new Expr.Literal(Boolean.FALSE, previous().line());
+        if (match(TokenType.NUMBER, TokenType.STRING, TokenType.TRUE, TokenType.FALSE))
+            return new Expr.Literal(previous().value(), previous().line());
         if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
             return new Expr.Grouping(expr);
         }
-        if (match(TokenType.STRING)) return new Expr.Literal(previous().value(), previous().line());
         throw new ParseError(peek().line(), "Expect expression.");
     }
 
@@ -220,7 +219,7 @@ public class Parser {
     }
 
     @FunctionalInterface
-    interface NodeBuilder {
+    private interface NodeBuilder {
         Expr build(Expr left, Token op, Expr right);
     }
 }
