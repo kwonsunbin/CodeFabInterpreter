@@ -7,6 +7,7 @@ import org.example.codefab.log.Logger;
 import org.example.codefab.shell.FileRunner;
 import org.example.codefab.shell.Pipeline;
 import org.example.codefab.shell.Shell;
+import org.example.codefab.shell.debug.Debugger;
 
 import java.util.Arrays;
 import java.util.List;
@@ -40,8 +41,7 @@ public class Main {
             new FileRunner(pipeline, System.out).run(effectiveArgs.get(1));
 
         } else if (effectiveArgs.size() >= 2 && effectiveArgs.get(0).equals("debug")) {
-            // debug 모드는 Executor 훅 연동 후 구현 예정
-            System.out.println("[debug] 디버그 모드는 준비 중입니다: " + effectiveArgs.get(1));
+            new Debugger(pipeline, System.in, System.out).runFile(effectiveArgs.get(1));
 
         } else {
             System.out.println("CodeFab Interpreter — type 'exit' to quit.");
