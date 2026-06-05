@@ -106,23 +106,29 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Object visitGrouping(Expr.Grouping expr) {
+        if (expr.foldedValue != null) return expr.foldedValue; // 상수 폴딩 결과 사용
         return evaluate(expr.expression);
     }
 
     @Override
     public Object visitVariable(Expr.Variable expr) {
-        return environment.get(expr.name);
+        // 정적 바인딩: Checker가 거리를 계산했으면 O(1)로 즉시 접근
+        if (expr.depth >= 0) return environment.getAt(expr.depth, expr.name.origin());
+        return environment.get(expr.name); // 미해석(전역 등) → 동적 조회 폴백
     }
 
     @Override
     public Object visitAssign(Expr.Assign expr) {
         Object value = evaluate(expr.value);
-        environment.assign(expr.name, value);
+        // 정적 바인딩: 거리가 있으면 O(1)로 즉시 기록
+        if (expr.depth >= 0) environment.setAt(expr.depth, expr.name.origin(), value);
+        else                 environment.assign(expr.name, value);
         return value;
     }
 
     @Override
     public Object visitUnary(Expr.Unary expr) {
+        if (expr.foldedValue != null) return expr.foldedValue; // 상수 폴딩 결과 사용
         Object operand = evaluate(expr.operand);
         return switch (expr.op.type()) {
             case MINUS -> { checkNumberOperand(expr.op, operand); yield -(double) operand; }
@@ -133,6 +139,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Object visitBinary(Expr.Binary expr) {
+        if (expr.foldedValue != null) return expr.foldedValue; // 상수 폴딩 결과 사용
         Object left  = evaluate(expr.left);
         Object right = evaluate(expr.right);
         return switch (expr.op.type()) {
@@ -154,6 +161,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Object visitComparison(Expr.Comparison expr) {
+        if (expr.foldedValue != null) return expr.foldedValue; // 상수 폴딩 결과 사용
         Object left  = evaluate(expr.left);
         Object right = evaluate(expr.right);
         return switch (expr.op.type()) {
@@ -181,6 +189,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Object visitLogical(Expr.Logical expr) {
+        if (expr.foldedValue != null) return expr.foldedValue; // 상수 폴딩 결과 사용
         Object left = evaluate(expr.left);
         if (expr.op.type() == TokenType.OR) {
             if (isTruthy(left)) return left;

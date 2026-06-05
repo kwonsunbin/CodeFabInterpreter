@@ -55,6 +55,28 @@ public class Environment {
         throw new RuntimeError(name, "Undefined variable '" + name.origin() + "'.");
     }
 
+    // ── Static binding (scope distance pre-computed by Checker) ────────────────
+    // get/assign은 변수를 찾을 때까지 enclosing 체인을 거슬러 오른다(O(depth)).
+    // Checker가 미리 계산한 거리(distance)가 있으면, 그 위치로 한 번에 점프해
+    // O(1)로 읽고 쓴다. 바인딩 존재는 Checker가 정적으로 보장한다.
+
+    /** distance 만큼 enclosing 체인을 거슬러 올라간 환경 반환 (0 = 현재 스코프). */
+    private Environment ancestor(int distance) {
+        Environment env = this;
+        for (int i = 0; i < distance; i++) env = env.enclosing;
+        return env;
+    }
+
+    /** 정적으로 해석된 거리에서 변수 값을 즉시 읽는다 (O(1)). */
+    public Object getAt(int distance, String name) {
+        return ancestor(distance).values.get(name);
+    }
+
+    /** 정적으로 해석된 거리의 변수에 값을 즉시 기록한다 (O(1)). */
+    public void setAt(int distance, String name, Object value) {
+        ancestor(distance).values.put(name, value);
+    }
+
     // ── Debug accessors ───────────────────────────────────────────────────────
 
     /** 이름이 이 스코프 또는 상위 체인에 존재하는지 확인 */
