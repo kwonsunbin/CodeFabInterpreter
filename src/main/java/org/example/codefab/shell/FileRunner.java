@@ -53,7 +53,6 @@ public class FileRunner {
 
             pipeline.executor().run(program);
         } catch (CodeFabError e) {
-            pipeline.log().error(e);
             out.println(e.userMessage());
             System.exit(1);
         }

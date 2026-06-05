@@ -1,0 +1,24 @@
+// 기본 변수 및 산술
+var a = 10;
+var b = 3;
+print a + b;
+print a - b;
+print a * b;
+
+// 문자열
+var name = "CodeFab";
+print "Hello, " + name + "!";
+
+// 조건문
+if (a > b) {
+    print "a가 더 큽니다";
+} else {
+    print "b가 더 큽니다";
+}
+
+// 반복문
+var sum = 0;
+for (var i = 1; i < 6; i = i + 1) {
+    sum = sum + i;
+}
+print sum;
