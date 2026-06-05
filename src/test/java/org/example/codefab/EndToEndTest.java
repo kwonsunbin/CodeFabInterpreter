@@ -255,10 +255,11 @@ class EndToEndTest {
 
     // ── Runtime errors ────────────────────────────────────────────────────────
 
-    @Test void undefinedVariable_runtimeError() {
+    @Test void undefinedVariable_checkError() {
+        // 미선언 변수 접근은 Executor 런타임 전에 Checker가 의미 오류로 감지
         var result = run("print notDefined;");
-        assertTrue(result.hasRuntimeError());
-        assertTrue(result.runtimeError().contains("Undefined variable 'notDefined'"));
+        assertTrue(result.hasCheckError());
+        assertTrue(result.checkErrors().get(0).contains("Undefined variable"));
     }
 
     @Test void numberPlusString_runtimeError() {
@@ -390,28 +391,31 @@ class EndToEndTest {
         assertTrue(result.runtimeError().contains("Division by zero"));
     }
 
-    @Test void variableOutOfScope_runtimeError() {
-        // 블록 안에서 선언된 변수는 블록 밖에서 접근 불가
+    @Test void variableOutOfScope_checkError() {
+        // 블록 스코프 위반은 Checker가 의미 오류로 감지
         var result = run("{ var a = 1; } print a;");
-        assertTrue(result.hasRuntimeError());
-        assertTrue(result.runtimeError().contains("Undefined variable 'a'"));
+        assertTrue(result.hasCheckError());
+        assertTrue(result.checkErrors().get(0).contains("Undefined variable"));
     }
 
-    @Test void assignUndefinedVariable_runtimeError() {
+    @Test void assignUndefinedVariable_checkError() {
+        // 미선언 변수 할당은 Checker가 의미 오류로 감지
         var result = run("a = 5;");
-        assertTrue(result.hasRuntimeError());
-        assertTrue(result.runtimeError().contains("Undefined variable 'a'"));
+        assertTrue(result.hasCheckError());
+        assertTrue(result.checkErrors().get(0).contains("Undefined variable"));
     }
 
     @Test void subtractStrings_runtimeError() {
+        // 타입 불일치는 실행 중에만 알 수 있으므로 Executor가 RuntimeError로 처리
         var result = run("print \"a\" - \"b\";");
         assertTrue(result.hasRuntimeError());
-        assertTrue(result.runtimeError().contains("Operands must be numbers"));
+        assertTrue(result.runtimeError().contains("타입과") && result.runtimeError().contains("연산은 지원하지 않습니다"));
     }
 
     @Test void compareNonNumbers_runtimeError() {
+        // 타입 불일치는 실행 중에만 알 수 있으므로 Executor가 RuntimeError로 처리
         var result = run("print \"a\" < \"b\";");
         assertTrue(result.hasRuntimeError());
-        assertTrue(result.runtimeError().contains("Operands must be numbers"));
+        assertTrue(result.runtimeError().contains("타입과") && result.runtimeError().contains("연산은 지원하지 않습니다"));
     }
 }

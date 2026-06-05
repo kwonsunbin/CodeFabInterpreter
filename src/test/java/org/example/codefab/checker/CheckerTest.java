@@ -87,4 +87,32 @@ class CheckerTest {
     @Test void assignmentStatementHasNoErrors() {
         assertTrue(check("var a = 1; a = 2; print a;").ok());
     }
+
+    // ── Rule 3: undeclared variable read ─────────────────────────────────────
+
+    @Test void undeclaredVariableReadIsError() {
+        var result = check("print x;");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("Undefined variable"));
+    }
+
+    @Test void variableNotAccessibleOutsideBlockIsError() {
+        var result = check("{ var x = 1; } print x;");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("Undefined variable"));
+    }
+
+    @Test void forwardReferenceIsError() {
+        var result = check("var a = b + 1; var b = 2;");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("Undefined variable"));
+    }
+
+    // ── Rule 4: undeclared variable write ────────────────────────────────────
+
+    @Test void undeclaredVariableAssignIsError() {
+        var result = check("a = 5;");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("Undefined variable"));
+    }
 }
