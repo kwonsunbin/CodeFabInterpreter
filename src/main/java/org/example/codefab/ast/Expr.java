@@ -10,7 +10,8 @@ import org.example.codefab.token.Token;
 public abstract sealed class Expr
         permits Expr.Binary, Expr.Logical, Expr.Comparison,
                 Expr.Unary, Expr.Grouping, Expr.Literal,
-                Expr.Variable, Expr.Assign {
+                Expr.Variable, Expr.Assign,
+                Expr.Call, Expr.ArrayLiteral, Expr.ArrayIndex {
 
     public interface Visitor<R> {
         R visitBinary(Binary expr);
@@ -21,6 +22,9 @@ public abstract sealed class Expr
         R visitLiteral(Literal expr);
         R visitVariable(Variable expr);
         R visitAssign(Assign expr);
+        R visitCall(Call expr);
+        R visitArrayLiteral(ArrayLiteral expr);
+        R visitArrayIndex(ArrayIndex expr);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -113,5 +117,43 @@ public abstract sealed class Expr
         }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitAssign(this); }
+    }
+
+    // ── Function call: callee(args...) ─────────────────────────────────────────
+    public static final class Call extends Expr {
+        public final Expr callee;
+        public final Token paren;          // closing ')' — carries line for errors
+        public final java.util.List<Expr> arguments;
+
+        public Call(Expr callee, Token paren, java.util.List<Expr> arguments) {
+            this.callee = callee; this.paren = paren; this.arguments = arguments;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitCall(this); }
+    }
+
+    // ── Array literal: [e0, e1, ...] ───────────────────────────────────────────
+    public static final class ArrayLiteral extends Expr {
+        public final Token bracket;        // '[' — carries line for errors
+        public final java.util.List<Expr> elements;
+
+        public ArrayLiteral(Token bracket, java.util.List<Expr> elements) {
+            this.bracket = bracket; this.elements = elements;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitArrayLiteral(this); }
+    }
+
+    // ── Array index read: target[index] ────────────────────────────────────────
+    public static final class ArrayIndex extends Expr {
+        public final Expr target;
+        public final Token bracket;        // '[' — carries line for errors
+        public final Expr index;
+
+        public ArrayIndex(Expr target, Token bracket, Expr index) {
+            this.target = target; this.bracket = bracket; this.index = index;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitArrayIndex(this); }
     }
 }

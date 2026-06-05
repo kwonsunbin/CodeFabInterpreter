@@ -7,6 +7,7 @@ import org.example.codefab.log.Logger;
 import org.example.codefab.token.Token;
 import org.example.codefab.token.TokenType;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -85,6 +86,19 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
     public Void visitExpression(Stmt.Expression stmt) {
         evaluate(stmt.expression);
         return null;
+    }
+
+    @Override
+    public Void visitFuncDecl(Stmt.FuncDecl stmt) {
+        CodeFabFunction function = new CodeFabFunction(stmt, environment);
+        environment.define(stmt.name.origin(), function);
+        return null;
+    }
+
+    @Override
+    public Void visitReturn(Stmt.Return stmt) {
+        Object value = stmt.value != null ? evaluate(stmt.value) : null;
+        throw new ReturnException(value);
     }
 
     // ── Expression visitors ───────────────────────────────────────────────────
@@ -167,6 +181,53 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
         return evaluate(expr.right);
     }
 
+    @Override
+    public Object visitCall(Expr.Call expr) {
+        Object callee = evaluate(expr.callee);
+
+        List<Object> arguments = new ArrayList<>();
+        for (Expr arg : expr.arguments) arguments.add(evaluate(arg));
+
+        if (!(callee instanceof CodeFabCallable function)) {
+            throw new RuntimeError(expr.paren, "Can only call functions.");
+        }
+        if (arguments.size() != function.arity()) {
+            throw new RuntimeError(expr.paren,
+                    "Expected " + function.arity() + " arguments but got " + arguments.size() + ".");
+        }
+        return function.call(this, arguments);
+    }
+
+    @Override
+    public Object visitArrayLiteral(Expr.ArrayLiteral expr) {
+        List<Object> elements = new ArrayList<>();
+        for (Expr element : expr.elements) elements.add(evaluate(element));
+        return elements;
+    }
+
+    @Override
+    public Object visitArrayIndex(Expr.ArrayIndex expr) {
+        Object arrayObj = evaluate(expr.target);
+        Object indexObj = evaluate(expr.index);
+
+        if (!(arrayObj instanceof List<?>)) {
+            throw new RuntimeError(expr.bracket, "Only arrays can be indexed.");
+        }
+        if (!(indexObj instanceof Double d) || d != Math.floor(d) || Double.isInfinite(d)) {
+            throw new RuntimeError(expr.bracket, "Array index must be an integer.");
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Object> array = (List<Object>) arrayObj;
+        int index = ((Double) indexObj).intValue();
+
+        if (index < 0 || index >= array.size()) {
+            throw new RuntimeError(expr.bracket,
+                    "Array index " + index + " out of bounds (length " + array.size() + ").");
+        }
+        return array.get(index);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /** Execute a block in a fresh child environment. */
@@ -207,16 +268,19 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
     }
 
     private static String typeName(Object value) {
-        if (value == null)            return "null";
-        if (value instanceof Double)  return "number";
-        if (value instanceof Boolean) return "boolean";
-        if (value instanceof String)  return "string";
+        if (value == null)                    return "null";
+        if (value instanceof Double)          return "number";
+        if (value instanceof Boolean)         return "boolean";
+        if (value instanceof String)          return "string";
+        if (value instanceof List<?>)         return "array";
+        if (value instanceof CodeFabCallable) return "function";
         return value.getClass().getSimpleName();
     }
 
     /**
      * Converts a runtime value to its display string.
      * Integral doubles are printed without the trailing .0 (15.0 → "15").
+     * Arrays are rendered as [e0, e1, ...] with each element stringified recursively.
      */
     public static String stringify(Object value) {
         if (value == null) return "nil";
@@ -226,6 +290,15 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
             }
             return d.toString();
         }
-        return value.toString(); // Boolean, String
+        if (value instanceof List<?> list) {
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < list.size(); i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(stringify(list.get(i)));
+            }
+            sb.append("]");
+            return sb.toString();
+        }
+        return value.toString(); // Boolean, String, CodeFabFunction
     }
 }

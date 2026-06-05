@@ -10,7 +10,8 @@ import java.util.List;
  */
 public abstract sealed class Stmt
         permits Stmt.Var, Stmt.If, Stmt.For,
-                Stmt.Print, Stmt.Block, Stmt.Expression {
+                Stmt.Print, Stmt.Block, Stmt.Expression,
+                Stmt.FuncDecl, Stmt.Return {
 
     public interface Visitor<R> {
         R visitVar(Var stmt);
@@ -19,6 +20,8 @@ public abstract sealed class Stmt
         R visitPrint(Print stmt);
         R visitBlock(Block stmt);
         R visitExpression(Expression stmt);
+        R visitFuncDecl(FuncDecl stmt);
+        R visitReturn(Return stmt);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -94,5 +97,30 @@ public abstract sealed class Stmt
         public Expression(Expr expression) { this.expression = expression; }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitExpression(this); }
+    }
+
+    // ── Function declaration: Func name(p1, p2) { body } ─────────────────────
+    public static final class FuncDecl extends Stmt {
+        public final Token name;
+        public final List<Token> params;
+        public final Stmt.Block body;
+
+        public FuncDecl(Token name, List<Token> params, Stmt.Block body) {
+            this.name = name; this.params = params; this.body = body;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitFuncDecl(this); }
+    }
+
+    // ── Return statement: return [expr]; ─────────────────────────────────────
+    public static final class Return extends Stmt {
+        public final Token keyword;     // 'return' token — carries line for errors
+        public final Expr value;        // nullable — bare return yields nil
+
+        public Return(Token keyword, Expr value) {
+            this.keyword = keyword; this.value = value;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitReturn(this); }
     }
 }
