@@ -16,15 +16,17 @@ import java.util.Map;
 public class Lexer {
 
     private static final Map<String, TokenType> KEYWORDS = Map.ofEntries(
-            Map.entry("var",   TokenType.VAR),
-            Map.entry("if",    TokenType.IF),
-            Map.entry("else",  TokenType.ELSE),
-            Map.entry("for",   TokenType.FOR),
-            Map.entry("print", TokenType.PRINT),
-            Map.entry("true",  TokenType.TRUE),
-            Map.entry("false", TokenType.FALSE),
-            Map.entry("and",   TokenType.AND),
-            Map.entry("or",    TokenType.OR)
+            Map.entry("var",    TokenType.VAR),
+            Map.entry("if",     TokenType.IF),
+            Map.entry("else",   TokenType.ELSE),
+            Map.entry("for",    TokenType.FOR),
+            Map.entry("print",  TokenType.PRINT),
+            Map.entry("true",   TokenType.TRUE),
+            Map.entry("false",  TokenType.FALSE),
+            Map.entry("and",    TokenType.AND),
+            Map.entry("or",     TokenType.OR),
+            Map.entry("Func",   TokenType.FUNC),
+            Map.entry("return", TokenType.RETURN)
     );
 
     private final String source;
@@ -54,7 +56,10 @@ public class Lexer {
             case ')' -> addToken(TokenType.RIGHT_PAREN);
             case '{' -> addToken(TokenType.LEFT_BRACE);
             case '}' -> addToken(TokenType.RIGHT_BRACE);
+            case '[' -> addToken(TokenType.LEFT_BRACKET);
+            case ']' -> addToken(TokenType.RIGHT_BRACKET);
             case ';' -> addToken(TokenType.SEMICOLON);
+            case ',' -> addToken(TokenType.COMMA);
             case '+' -> addToken(TokenType.PLUS);
             case '-' -> addToken(TokenType.MINUS);
             case '*' -> addToken(TokenType.STAR);
