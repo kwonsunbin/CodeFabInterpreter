@@ -218,7 +218,7 @@ public class Checker implements Stmt.Visitor<Void> {
                 scanExpr(a.value);
                 yield null;
             }
-            
+
              case Expr.Call c -> {
                   scanExpr(c.callee);
                   for (Expr arg : c.arguments) scanExpr(arg);
