@@ -147,14 +147,22 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
         Object left  = evaluate(expr.left);
         Object right = evaluate(expr.right);
         return switch (expr.op.type()) {
-            case GREATER       -> { checkNumberOperands(expr.op, left, right); yield (double) left >  (double) right; }
-            case GREATER_EQUAL -> { checkNumberOperands(expr.op, left, right); yield (double) left >= (double) right; }
-            case LESS          -> { checkNumberOperands(expr.op, left, right); yield (double) left <  (double) right; }
-            case LESS_EQUAL    -> { checkNumberOperands(expr.op, left, right); yield (double) left <= (double) right; }
+            case GREATER       -> compareOrdered(expr.op, left, right) >  0;
+            case GREATER_EQUAL -> compareOrdered(expr.op, left, right) >= 0;
+            case LESS          -> compareOrdered(expr.op, left, right) <  0;
+            case LESS_EQUAL    -> compareOrdered(expr.op, left, right) <= 0;
             case EQUAL_EQUAL   -> isEqual(left, right);
             case BANG_EQUAL    -> !isEqual(left, right);
             default -> throw new RuntimeError(expr.op, "Unknown comparison operator.");
         };
+    }
+
+    private int compareOrdered(Token op, Object left, Object right) {
+        if (left instanceof Double l && right instanceof Double r) return Double.compare(l, r);
+        if (left instanceof String l && right instanceof String r) return l.compareTo(r);
+        throw new RuntimeError(op,
+                typeName(left) + " 타입과 " + typeName(right) + " 타입에 대해 '" +
+                op.origin() + "' 연산은 지원하지 않습니다.");
     }
 
     private boolean isEqual(Object a, Object b) {

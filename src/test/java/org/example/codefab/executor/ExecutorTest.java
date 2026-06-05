@@ -656,4 +656,103 @@ class ExecutorTest {
         assertTrue(ex.getMessage().contains("null 타입과 number 타입"),
                 "실제 메시지: " + ex.getMessage());
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 12. 문자열 대소 비교 (사전순, lexicographic)
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    void stringGreaterThan_true() {
+        // "b" > "a" → true
+        var expr = new Expr.Comparison(str("b"), tok(TokenType.GREATER, ">"), str("a"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterThan_false() {
+        // "a" > "b" → false
+        var expr = new Expr.Comparison(str("a"), tok(TokenType.GREATER, ">"), str("b"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterThan_equalStrings_false() {
+        // "abc" > "abc" → false
+        var expr = new Expr.Comparison(str("abc"), tok(TokenType.GREATER, ">"), str("abc"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterEqual_equal_true() {
+        // "abc" >= "abc" → true
+        var expr = new Expr.Comparison(str("abc"), tok(TokenType.GREATER_EQUAL, ">="), str("abc"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterEqual_greater_true() {
+        // "b" >= "a" → true
+        var expr = new Expr.Comparison(str("b"), tok(TokenType.GREATER_EQUAL, ">="), str("a"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterEqual_less_false() {
+        // "a" >= "b" → false
+        var expr = new Expr.Comparison(str("a"), tok(TokenType.GREATER_EQUAL, ">="), str("b"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessThan_true() {
+        // "apple" < "banana" → true
+        var expr = new Expr.Comparison(str("apple"), tok(TokenType.LESS, "<"), str("banana"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessThan_false() {
+        // "z" < "a" → false
+        var expr = new Expr.Comparison(str("z"), tok(TokenType.LESS, "<"), str("a"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessEqual_equal_true() {
+        // "hi" <= "hi" → true
+        var expr = new Expr.Comparison(str("hi"), tok(TokenType.LESS_EQUAL, "<="), str("hi"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessEqual_less_true() {
+        // "a" <= "b" → true
+        var expr = new Expr.Comparison(str("a"), tok(TokenType.LESS_EQUAL, "<="), str("b"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessEqual_greater_false() {
+        // "z" <= "a" → false
+        var expr = new Expr.Comparison(str("z"), tok(TokenType.LESS_EQUAL, "<="), str("a"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringVsNumber_greaterThan_throwsRuntimeError() {
+        // "hello" > 5 → RuntimeError (타입 불일치)
+        var expr = new Expr.Comparison(str("hello"), tok(TokenType.GREATER, ">"), num(5.0));
+        var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
+        assertTrue(ex.getMessage().contains("string 타입과 number 타입"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test
+    void numberVsString_lessThan_throwsRuntimeError() {
+        // 3 < "abc" → RuntimeError (타입 불일치)
+        var expr = new Expr.Comparison(num(3.0), tok(TokenType.LESS, "<"), str("abc"));
+        var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
+        assertTrue(ex.getMessage().contains("number 타입과 string 타입"),
+                "실제 메시지: " + ex.getMessage());
+    }
 }
