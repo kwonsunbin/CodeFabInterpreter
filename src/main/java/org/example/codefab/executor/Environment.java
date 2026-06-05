@@ -9,6 +9,16 @@ import java.util.Map;
 /**
  * Runtime variable environment with lexical scoping.
  * Each block creates a child Environment with a pointer to its enclosing scope.
+ *
+ * <p>Responsibility boundary:
+ * <ul>
+ *   <li>Semantic errors (undeclared variable, block scope violation, forward reference)
+ *       are detected statically by {@code Checker} before execution begins.</li>
+ *   <li>This class throws {@code RuntimeError} for "Undefined variable" only as a
+ *       defensive assertion — it should be unreachable when the full pipeline runs.</li>
+ *   <li>True runtime errors (type mismatch, division by zero) are raised by
+ *       {@code Executor} and remain the sole responsibility of the execution layer.</li>
+ * </ul>
  */
 public class Environment {
 
