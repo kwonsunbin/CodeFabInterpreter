@@ -24,7 +24,15 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
     private final Environment globalEnv = new Environment();
     private Environment environment = globalEnv;
 
+    private ExecutionListener listener;
+
     public Executor(Logger log) { this.log = log; }
+
+    /** 디버그 리스너 등록 / 해제 (null 전달 시 해제) */
+    public void setListener(ExecutionListener l) { this.listener = l; }
+
+    /** 현재 런타임 환경 반환 — Debugger의 inspect / watch 에서 사용 */
+    public Environment getEnvironment() { return environment; }
 
     /**
      * Runs a list of statements.
@@ -57,6 +65,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
         Environment loopEnv = new Environment(environment);
         Environment previous = environment;
         environment = loopEnv;
+        if (listener != null) listener.onEnterScope();
         try {
             if (stmt.initializer != null) execute(stmt.initializer);
             while (stmt.condition == null || isTruthy(evaluate(stmt.condition))) {
@@ -64,6 +73,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
                 if (stmt.increment != null) evaluate(stmt.increment);
             }
         } finally {
+            if (listener != null) listener.onExitScope();
             environment = previous;
         }
         return null;
@@ -173,18 +183,21 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
     public void executeBlock(List<Stmt> statements, Environment blockEnv) {
         Environment previous = environment;
         environment = blockEnv;
+        if (listener != null) listener.onEnterScope();
         try {
             for (Stmt stmt : statements) execute(stmt);
         } finally {
+            if (listener != null) listener.onExitScope();
             environment = previous;
         }
     }
 
-    private Object evaluate(Expr expr)  {
-        return expr.accept(this);
-    }
+    private Object evaluate(Expr expr) { return expr.accept(this); }
 
-    private void   execute(Stmt stmt)   { stmt.accept(this); }
+    private void execute(Stmt stmt) {
+        if (listener != null) listener.onStatement(stmt);
+        stmt.accept(this);
+    }
 
     /** Truthiness: Boolean → itself; null → false; everything else → true. */
     private boolean isTruthy(Object value) {

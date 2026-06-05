@@ -169,7 +169,7 @@ public class Parser {
      */
     private Expr primary() {
         if (match(TokenType.NUMBER, TokenType.STRING, TokenType.TRUE, TokenType.FALSE))
-            return new Expr.Literal(previous().value());
+            return new Expr.Literal(previous().value(), previous().line());
         if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
