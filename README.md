@@ -28,7 +28,6 @@ CodeFab Interpreter — type 'exit' to quit.
 >>> print a + b;
 15
 >>> exit
-Bye!
 ```
 
 ---
@@ -77,7 +76,7 @@ Bye!
 src/main/java/org/example/codefab/
 ├── Main.java                        # 진입점
 ├── token/
-│   ├── TokenType.java               # 22가지 토큰 타입 열거형
+│   ├── TokenType.java               # 29가지 토큰 타입 열거형
 │   └── Token.java                   # record(type, origin, value, line)
 ├── ast/
 │   ├── Expr.java                    # 표현식 노드 (Sealed class + Visitor)
@@ -98,6 +97,7 @@ src/main/java/org/example/codefab/
 │   └── Logger.java                  # 생명주기 로그 (verbose 게이팅)
 ├── shell/
 │   ├── SubmissionBuffer.java        # 괄호/중괄호 균형 감지 (연속 입력)
+│   ├── Pipeline.java                # Assembler → Checker → Executor 3단계 파이프라인 파사드
 │   └── Shell.java                   # REPL 루프 (>>> / ... 프롬프트)
 └── error/
     ├── CodeFabError.java            # 추상 기반 예외
@@ -139,12 +139,12 @@ primary     = NUMBER | STRING | "true" | "false" | IDENTIFIER | "(" expression "
 
 | 분류 | 토큰 |
 |---|---|
-| 구분자 | `(` `)` `{` `}` `;` |
+| 구분자 | `(` `)` `{` `}` `[` `]` `;` `,` |
 | 산술 연산자 | `+` `-` `*` `/` |
-| 비교 연산자 | `>` `<` |
-| 논리 연산자 | `and` `or` |
+| 비교 연산자 | `>` `>=` `<` `<=` `==` `!=` |
+| 논리 연산자 | `and` `or` `!` |
 | 할당 | `=` |
-| 키워드 | `var` `if` `else` `for` `print` `true` `false` |
+| 키워드 | `var` `if` `else` `for` `print` `true` `false` `Func` `return` |
 | 리터럴 | `NUMBER` (double) `STRING` |
 
 ### AST 노드
@@ -281,15 +281,19 @@ yes
 
 ## 테스트
 
-총 **80개 테스트**, 5개 클래스로 구성:
+총 **215개 테스트**, 9개 클래스로 구성:
 
 | 테스트 클래스 | 건수 | 내용 |
 |---|---|---|
-| `LexerTest` | 11 | 토큰 타입, 리터럴 값, 줄 번호, 주석 처리, 에러 케이스 |
-| `ParserTest` | 20 | 연산자 우선순위, 결합 방향, Unary, for 절, dangling-else, 아키텍처 규칙 반사 테스트 |
-| `CheckerTest` | 8 | 중복 선언, 자기 참조, 섀도잉 허용, for 스코프, 다중 에러 수집 |
-| `SubmissionBufferTest` | 9 | 괄호 균형 감지, 문자열 내부 무시, 연속 입력 시나리오 |
-| `EndToEndTest` | 32 | 정상 동작 전체 + 구문/정적/런타임 에러 검출 (사용자 테스트 스크립트 기반) |
+| `LexerTest` | 25 | 토큰 타입, 리터럴 값, 줄 번호, 주석 처리, 신규 토큰(FUNC/RETURN/COMMA/BRACKET), 에러 케이스 |
+| `ParserTest` | 34 | 연산자 우선순위, 결합 방향, Unary, for 절, dangling-else, 아키텍처 규칙 반사 테스트 |
+| `CheckerTest` | 14 | 중복 선언, 자기 참조, 섀도잉 허용, for 스코프, 다중 에러 수집 |
+| `ExecutorTest` | 55 | 산술·논리·비교 실행, 변수·스코프·블록, 런타임 오류 |
+| `EnvironmentTest` | 8 | 변수 정의·조회·할당, enclosing 체인 탐색 |
+| `SubmissionBufferTest` | 12 | 괄호 균형 감지, 문자열 내부 무시, 연속 입력 시나리오 |
+| `PipelineTest` | 5 | Assembler→Checker→Executor 파이프라인 통합 |
+| `LoggerTest` | 8 | verbose 게이팅, stderr 출력, 에러 메시지 포맷 |
+| `EndToEndTest` | 54 | 정상 동작 전체 + 구문/정적/런타임 에러 검출 |
 
 ```bash
 JAVA_HOME=~/.jdks/temurin-21.0.11 ./gradlew test
