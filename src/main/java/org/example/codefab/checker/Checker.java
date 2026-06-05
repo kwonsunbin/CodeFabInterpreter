@@ -135,6 +135,14 @@ public class Checker implements Stmt.Visitor<Void> {
         return null;
     }
 
+    // Stubs — full semantic rules for functions/arrays will be added when
+    // the corresponding Parser support lands.
+    @Override
+    public Void visitFuncDecl(Stmt.FuncDecl stmt) { return null; }
+
+    @Override
+    public Void visitReturn(Stmt.Return stmt) { return null; }
+
     // ── Expression scanner ────────────────────────────────────────────────────
     // Walks expression subtrees only to enforce variable-scope rules.
     // No runtime evaluation is performed here.
@@ -166,6 +174,9 @@ public class Checker implements Stmt.Visitor<Void> {
             case Expr.Comparison c -> { scanExpr(c.left); scanExpr(c.right); }
             case Expr.Unary u      -> scanExpr(u.operand);
             case Expr.Grouping g   -> scanExpr(g.expression);
+            case Expr.Call c       -> { scanExpr(c.callee); for (Expr a : c.arguments) scanExpr(a); }
+            case Expr.ArrayLiteral al -> { for (Expr e : al.elements) scanExpr(e); }
+            case Expr.ArrayIndex ai -> { scanExpr(ai.target); scanExpr(ai.index); }
             case Expr.Literal ignored -> {}
         }
     }
