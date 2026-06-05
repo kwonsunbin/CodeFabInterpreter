@@ -112,8 +112,8 @@ public class Checker implements Stmt.Visitor<Void> {
     public Void visitFor(Stmt.For stmt) {
         beginScope();
         if (stmt.initializer != null) execute(stmt.initializer);
-        if (stmt.condition   != null) scanExpr(stmt.condition);
-        if (stmt.increment   != null) scanExpr(stmt.increment);
+        if (stmt.condition != null) scanExpr(stmt.condition);
+        if (stmt.increment != null) scanExpr(stmt.increment);
         execute(stmt.body);
         endScope();
         return null;
@@ -157,41 +157,50 @@ public class Checker implements Stmt.Visitor<Void> {
 
             case Expr.Unary u -> {
                 Object operand = scanExpr(u.operand);
-                Object folded  = foldUnary(u.op, operand);
+                Object folded = foldUnary(u.op, operand);
                 if (folded != null) u.foldedValue = folded;
                 yield folded;
             }
 
             case Expr.Binary b -> {
-                Object left   = scanExpr(b.left);
-                Object right  = scanExpr(b.right);
+                Object left = scanExpr(b.left);
+                Object right = scanExpr(b.right);
                 Object folded = foldBinary(b.op, left, right);
                 if (folded != null) b.foldedValue = folded;
                 yield folded;
             }
 
             case Expr.Comparison c -> {
-                Object left   = scanExpr(c.left);
-                Object right  = scanExpr(c.right);
+                Object left = scanExpr(c.left);
+                Object right = scanExpr(c.right);
                 Object folded = foldComparison(c.op, left, right);
                 if (folded != null) c.foldedValue = folded;
                 yield folded;
             }
 
             case Expr.Logical lo -> {
-                Object left  = scanExpr(lo.left);
+                Object left = scanExpr(lo.left);
                 Object right = scanExpr(lo.right); // 스코프 검사를 위해 항상 순회
                 if (left != null) {
-                    if (lo.op.type() == TokenType.OR  &&  isTruthy(left)) { lo.foldedValue = left;  yield left; }
-                    if (lo.op.type() == TokenType.AND && !isTruthy(left)) { lo.foldedValue = left;  yield left; }
+                    if (lo.op.type() == TokenType.OR && isTruthy(left)) {
+                        lo.foldedValue = left;
+                        yield left;
+                    }
+                    if (lo.op.type() == TokenType.AND && !isTruthy(left)) {
+                        lo.foldedValue = left;
+                        yield left;
+                    }
                 }
-                if (left != null && right != null) { lo.foldedValue = right; yield right; }
+                if (left != null && right != null) {
+                    lo.foldedValue = right;
+                    yield right;
+                }
                 yield null;
             }
 
             case Expr.Variable v -> {
-                String name    = v.name.origin();
-                Scope  current = scopes.peek();
+                String name = v.name.origin();
+                Scope current = scopes.peek();
                 // Rule 2: self-reference — variable read during its own initializer
                 if (current.has(name) && current.state(name) == Scope.State.DECLARING) {
                     result.addError(v.name.line(), "Can't read local variable in initializer.");
@@ -219,35 +228,41 @@ public class Checker implements Stmt.Visitor<Void> {
                 yield null;
             }
 
-             case Expr.Call c -> {
-                  scanExpr(c.callee);
-                  for (Expr arg : c.arguments) scanExpr(arg);
-                  yield null;
-              }
-          };
-      }
+            case Expr.Call c -> {
+                scanExpr(c.callee);
+                for (Expr arg : c.arguments) scanExpr(arg);
+                yield null;
+            }
+            case Expr.ArrayGet ignored -> {
+                yield null;
+            }
+            case Expr.ArraySet ignored -> {
+                yield null;
+            }
+        };
+    }
 
     // ── Constant fold helpers ─────────────────────────────────────────────────
 
     private Object foldUnary(Token op, Object operand) {
         if (operand == null) return null;
         return switch (op.type()) {
-            case MINUS -> operand instanceof Double d  ? -d  : null;
-            case BANG  -> operand instanceof Boolean b ? !b  : null;
-            default    -> null;
+            case MINUS -> operand instanceof Double d ? -d : null;
+            case BANG -> operand instanceof Boolean b ? !b : null;
+            default -> null;
         };
     }
 
     private Object foldBinary(Token op, Object left, Object right) {
         if (left == null || right == null) return null;
         return switch (op.type()) {
-            case PLUS  -> {
+            case PLUS -> {
                 if (left instanceof Double l && right instanceof Double r) yield l + r;
                 if (left instanceof String l && right instanceof String r) yield l + r;
                 yield null;
             }
             case MINUS -> left instanceof Double l && right instanceof Double r ? l - r : null;
-            case STAR  -> left instanceof Double l && right instanceof Double r ? l * r : null;
+            case STAR -> left instanceof Double l && right instanceof Double r ? l * r : null;
             case SLASH -> {
                 if (!(left instanceof Double l && right instanceof Double r)) yield null;
                 if (r == 0) yield null; // 0 나누기: 런타임 에러로 위임
@@ -260,16 +275,16 @@ public class Checker implements Stmt.Visitor<Void> {
     private Object foldComparison(Token op, Object left, Object right) {
         if (!(left instanceof Double l && right instanceof Double r)) return null;
         return switch (op.type()) {
-            case GREATER       -> l > r;
+            case GREATER -> l > r;
             case GREATER_EQUAL -> l >= r;
-            case LESS          -> l < r;
-            case LESS_EQUAL    -> l <= r;
-            default            -> null;
+            case LESS -> l < r;
+            case LESS_EQUAL -> l <= r;
+            default -> null;
         };
     }
 
     private boolean isTruthy(Object value) {
-        if (value == null)              return false;
+        if (value == null) return false;
         if (value instanceof Boolean b) return b;
         return true;
 
