@@ -18,7 +18,7 @@ import java.util.function.Supplier;
  * <p>
  * Grammar (top-down, highest precedence last):
  * program    → statement* EOF
- * expression → assignment → or → and → comparison → term → factor → unary → primary
+ * expression → assignment → or → and → comparison → term → factor → unary → call → primary
  */
 public class Parser {
 
@@ -202,7 +202,7 @@ public class Parser {
     private Expr unary() {
         if (match(TokenType.MINUS, TokenType.BANG))
             return Expr.builder().op(previous()).operand(unary()).build();
-        return primary();
+        return call();
     }
 
     /**
