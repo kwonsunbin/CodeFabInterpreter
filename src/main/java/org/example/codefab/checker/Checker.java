@@ -8,7 +8,11 @@ import org.example.codefab.token.TokenType;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Checker Unit: static semantic analysis via recursive DFS (Visitor pattern).
@@ -31,6 +35,11 @@ public class Checker implements Stmt.Visitor<Void> {
     private final Deque<Scope> scopes = new ArrayDeque<>();
 
     private CheckResult result;
+
+    private int functionDepth = 0;
+    private final Map<String, Integer> functionArities = new HashMap<>();
+    private final Set<String>          arrayNames      = new HashSet<>();
+    private final Map<String, Integer> arraySizes      = new HashMap<>();
 
     /**
      * Entry point — returns all collected diagnostics.
@@ -139,6 +148,49 @@ public class Checker implements Stmt.Visitor<Void> {
         return null;
     }
 
+    @Override
+    public Void visitFunction(Stmt.Function stmt) {
+        declare(stmt.name);
+        define(stmt.name);
+        functionArities.put(stmt.name.origin(), stmt.params.size());
+        beginScope();
+        functionDepth++;
+        for (Token param : stmt.params) {
+            declare(param);
+            define(param);
+        }
+        for (Stmt s : stmt.body) execute(s);
+        functionDepth--;
+        endScope();
+        return null;
+    }
+
+    @Override
+    public Void visitReturn(Stmt.Return stmt) {
+        if (functionDepth == 0) {
+            result.addError(stmt.keyword.line(), "Can't return from top-level code.");
+        }
+        if (stmt.value != null) scanExpr(stmt.value);
+        return null;
+    }
+
+    @Override
+    public Void visitArrayDecl(Stmt.ArrayDecl stmt) {
+        declare(stmt.name);
+        if (stmt.size instanceof Expr.Literal lit && !(lit.value instanceof Double)) {
+            result.addError(stmt.name.line(), "Array size must be a number.");
+        }
+        scanExpr(stmt.size);
+        arrayNames.add(stmt.name.origin());
+        if (stmt.size instanceof Expr.Literal lit && lit.value instanceof Double d) {
+            arraySizes.put(stmt.name.origin(), d.intValue());
+        } else {
+            arraySizes.put(stmt.name.origin(), -1);
+        }
+        define(stmt.name);
+        return null;
+    }
+
     // ── Expression scanner ────────────────────────────────────────────────────
     // Enforces variable-scope rules, records depth on Variable/Assign nodes,
     // and pre-computes constant expressions via constant folding.
@@ -219,13 +271,53 @@ public class Checker implements Stmt.Visitor<Void> {
                 yield null;
             }
 
-             case Expr.Call c -> {
-                  scanExpr(c.callee);
-                  for (Expr arg : c.arguments) scanExpr(arg);
-                  yield null;
-              }
-          };
-      }
+            case Expr.Call c -> {
+                scanExpr(c.callee);
+                for (Expr arg : c.arguments) scanExpr(arg);
+                if (c.callee instanceof Expr.Variable v && v.depth >= 0) {
+                    String name = v.name.origin();
+                    if (arrayNames.contains(name)) {
+                        result.addError(v.name.line(), "'" + name + "' is an array, not a function.");
+                    } else if (!functionArities.containsKey(name)) {
+                        result.addError(v.name.line(), "'" + name + "' is not a function.");
+                    } else {
+                        int expected = functionArities.get(name);
+                        int actual   = c.arguments.size();
+                        if (expected != actual) {
+                            result.addError(c.paren.line(),
+                                "'" + name + "' expects " + expected + " argument(s) but got " + actual + ".");
+                        }
+                    }
+                }
+                yield null;
+            }
+
+            case Expr.ArrayGet ag -> {
+                String name  = ag.name.origin();
+                int    depth = findScopeDistance(name);
+                if (depth < 0) {
+                    result.addError(ag.name.line(), "Undefined variable '" + name + "'.");
+                } else if (!arrayNames.contains(name)) {
+                    result.addError(ag.name.line(), "'" + name + "' is not an array.");
+                }
+                checkArrayIndex(ag.name, ag.index, name, depth);
+                yield null;
+            }
+
+            case Expr.ArraySet as -> {
+                String name  = as.name.origin();
+                int    depth = findScopeDistance(name);
+                if (depth < 0) {
+                    result.addError(as.name.line(), "Undefined variable '" + name + "'.");
+                } else if (!arrayNames.contains(name)) {
+                    result.addError(as.name.line(), "'" + name + "' is not an array.");
+                }
+                checkArrayIndex(as.name, as.index, name, depth);
+                scanExpr(as.value);
+                yield null;
+            }
+        };
+    }
 
     // ── Constant fold helpers ─────────────────────────────────────────────────
 
@@ -272,7 +364,26 @@ public class Checker implements Stmt.Visitor<Void> {
         if (value == null)              return false;
         if (value instanceof Boolean b) return b;
         return true;
+    }
 
+    private void checkArrayIndex(Token nameToken, Expr indexExpr, String name, int depth) {
+        scanExpr(indexExpr);
+        if (!(indexExpr instanceof Expr.Literal lit)) return;
+        if (!(lit.value instanceof Double)) {
+            result.addError(nameToken.line(), "Array index must be a number.");
+            return;
+        }
+        double idx = (Double) lit.value;
+        if (idx < 0 || idx != Math.floor(idx)) {
+            result.addError(nameToken.line(), "Array index must be a non-negative integer.");
+            return;
+        }
+        if (depth < 0 || !arrayNames.contains(name)) return;
+        Integer size = arraySizes.get(name);
+        if (size != null && size >= 0 && (int) idx >= size) {
+            result.addError(nameToken.line(),
+                "Array index " + (int) idx + " is out of bounds for array of size " + size + ".");
+        }
     }
 
     // ── Internal dispatch ─────────────────────────────────────────────────────
