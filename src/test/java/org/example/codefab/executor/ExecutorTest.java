@@ -603,7 +603,7 @@ class ExecutorTest {
         // Func greet() { return "hello"; }  print greet(); → "hello"
         var nameTok = varTok("greet");
         var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(), str("hello"))));
-        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var funcDecl = new Stmt.Function(nameTok, List.of(), body.statements);
         var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
         assertEquals("hello", exec(List.of(funcDecl, new Stmt.Print(call))));
     }
@@ -617,7 +617,7 @@ class ExecutorTest {
         var sumExpr = new Expr.Binary(
                 new Expr.Variable(aTok), tok(TokenType.PLUS, "+"), new Expr.Variable(bTok));
         var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(), sumExpr)));
-        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(aTok, bTok), body);
+        var funcDecl = new Stmt.Function(nameTok, List.of(aTok, bTok), body.statements);
         var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of(num(3.0), num(4.0)));
         assertEquals("7", exec(List.of(funcDecl, new Stmt.Print(call))));
     }
@@ -630,7 +630,7 @@ class ExecutorTest {
                 new Stmt.Return(returnTok(), num(1.0)),
                 new Stmt.Print(str("unreachable"))
         ));
-        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var funcDecl = new Stmt.Function(nameTok, List.of(), body.statements);
         var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
         assertEquals("", exec(List.of(funcDecl, new Stmt.Expression(call))));
     }
@@ -640,7 +640,7 @@ class ExecutorTest {
         // Func f() { var x = 1; }  print f(); → "nil"
         var nameTok = varTok("f");
         var body = new Stmt.Block(List.of(new Stmt.Var(varTok("x"), num(1.0))));
-        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var funcDecl = new Stmt.Function(nameTok, List.of(), body.statements);
         var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
         assertEquals("nil", exec(List.of(funcDecl, new Stmt.Print(call))));
     }
@@ -650,7 +650,7 @@ class ExecutorTest {
         // Func f() { return; }  print f(); → "nil"
         var nameTok = varTok("f");
         var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(), null)));
-        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var funcDecl = new Stmt.Function(nameTok, List.of(), body.statements);
         var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
         assertEquals("nil", exec(List.of(funcDecl, new Stmt.Print(call))));
     }
@@ -666,7 +666,7 @@ class ExecutorTest {
         var declOuter = new Stmt.Var(outerTok, num(10.0));
         var body = new Stmt.Block(List.of(
                 new Stmt.Return(returnTok(), new Expr.Variable(outerTok))));
-        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var funcDecl = new Stmt.Function(nameTok, List.of(), body.statements);
         var mutate = new Stmt.Expression(new Expr.Assign(outerTok, num(99.0)));
         var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
         assertEquals("99", exec(List.of(declOuter, funcDecl, mutate, new Stmt.Print(call))));
@@ -692,7 +692,7 @@ class ExecutorTest {
         var recurReturn = new Stmt.Return(returnTok(), product);
 
         var body     = new Stmt.Block(List.of(ifStmt, recurReturn));
-        var funcDecl = new Stmt.FuncDecl(factTok, List.of(nTok), body);
+        var funcDecl = new Stmt.Function(factTok, List.of(nTok), body.statements);
 
         var call = new Expr.Call(new Expr.Variable(factTok), rparenTok(), List.of(num(5.0)));
         assertEquals("120", exec(List.of(funcDecl, new Stmt.Print(call))));
@@ -726,7 +726,7 @@ class ExecutorTest {
         var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(),
                 new Expr.Binary(new Expr.Variable(aTok), tok(TokenType.PLUS, "+"),
                         new Expr.Variable(bTok)))));
-        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(aTok, bTok), body);
+        var funcDecl = new Stmt.Function(nameTok, List.of(aTok, bTok), body.statements);
         var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of(num(1.0)));
         var ex = assertThrows(RuntimeError.class,
                 () -> exec(List.of(funcDecl, new Stmt.Expression(call))));
@@ -739,7 +739,7 @@ class ExecutorTest {
         // Func greet() { return "hi"; }  greet("extra"); → arity 불일치
         var nameTok = varTok("greet");
         var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(), str("hi"))));
-        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var funcDecl = new Stmt.Function(nameTok, List.of(), body.statements);
         var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of(num(1.0)));
         var ex = assertThrows(RuntimeError.class,
                 () -> exec(List.of(funcDecl, new Stmt.Expression(call))));
@@ -751,7 +751,7 @@ class ExecutorTest {
     void print_funcValue_showsFuncName() {
         // Func greet() { }  print greet; → "<function greet>"
         var greetTok = varTok("greet");
-        var funcDecl = new Stmt.FuncDecl(greetTok, List.of(), new Stmt.Block(List.of()));
+        var funcDecl = new Stmt.Function(greetTok, List.of(), List.of());
         var print = new Stmt.Print(new Expr.Variable(greetTok));
         assertEquals("<function greet>", exec(List.of(funcDecl, print)));
     }

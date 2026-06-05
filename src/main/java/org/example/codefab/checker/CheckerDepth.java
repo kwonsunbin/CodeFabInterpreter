@@ -117,7 +117,7 @@ public class CheckerDepth implements Stmt.Visitor<Void> {
     }
 
     @Override
-    public Void visitFuncDecl(Stmt.FuncDecl stmt) {
+    public Void visitFunction(Stmt.Function stmt) {
         // 함수 이름을 현재 스코프에 등록해 재귀 호출의 depth가 올바르게 계산되도록 한다
         Scope cur = scopes.peek();
         if (!cur.has(stmt.name.origin())) {
@@ -130,7 +130,7 @@ public class CheckerDepth implements Stmt.Visitor<Void> {
             s.declare(param.origin());
             s.define(param.origin());
         }
-        for (Stmt s : stmt.body.statements) execute(s);
+        for (Stmt s : stmt.body) execute(s);
         endScope();
         return null;
     }

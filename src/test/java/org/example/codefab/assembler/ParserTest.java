@@ -21,6 +21,10 @@ class ParserTest {
         return type.cast(parse(src).get(i));
     }
 
+    private <T extends Stmt> T getFirst(String src, Class<T> type) {
+        return getStatement(src, 0, type);
+    }
+
     private Expr printExpr(String src) {
         return getStatement(src, 0, Stmt.Print.class).expression;
     }
@@ -145,7 +149,7 @@ class ParserTest {
 
     @Test
     void varDeclWithStringInitializer() {
-        var varStmt = getStatement("var s = \"hi\";", 0, Stmt.Var.class);
+        var varStmt = getFirst("var s = \"hi\";", Stmt.Var.class);
         var lit = (Expr.Literal) varStmt.initializer;
         assertEquals("hi", lit.value);
     }
@@ -153,7 +157,7 @@ class ParserTest {
     @Test
     void varDeclWithoutInitializerHasNullInitializer() {
         // var x; — EQUAL 미매칭 → initializer = null 분기
-        var varStmt = getStatement("var x;", 0, Stmt.Var.class);
+        var varStmt = getFirst("var x;", Stmt.Var.class);
         assertEquals("x", varStmt.name.origin());
         assertNull(varStmt.initializer);
     }
@@ -187,7 +191,7 @@ class ParserTest {
 
     @Test
     void forWithVarInit() {
-        var forStmt = getStatement("for (var i = 0; i < 3; i = i + 1) { print i; }", 0, Stmt.For.class);
+        var forStmt = getFirst("for (var i = 0; i < 3; i = i + 1) { print i; }", Stmt.For.class);
         assertInstanceOf(Stmt.Var.class, forStmt.initializer);
         assertNotNull(forStmt.condition);
         assertNotNull(forStmt.increment);
@@ -216,7 +220,7 @@ class ParserTest {
     @Test
     void forWithNullCondition() {
         // for (var i = 0; ; ) — condition 생략 시 check(SEMICOLON) true 분기
-        var forStmt = getStatement("for (var i = 0; ; ) { print 1; }", 0, Stmt.For.class);
+        var forStmt = getFirst("for (var i = 0; ; ) { print 1; }", Stmt.For.class);
         assertNull(forStmt.condition);
     }
 
@@ -225,7 +229,7 @@ class ParserTest {
     @Test
     void standaloneBlockProducesBlockNode() {
         // { print 1; } — statement()에서 LEFT_BRACE true 분기 직접 진입
-        var block = getStatement("{ print 1; }", 0, Stmt.Block.class);
+        var block = getFirst("{ print 1; }", Stmt.Block.class);
         assertEquals(1, block.statements.size());
         assertInstanceOf(Stmt.Print.class, block.statements.get(0));
     }
@@ -239,7 +243,7 @@ class ParserTest {
     @Test
     void ifWithBlockBodyEntersLeftBraceBranch() {
         // thenBranch가 블록일 때 statement() → LEFT_BRACE true 분기 경유
-        var ifStmt = getStatement("if (true) { print 1; }", 0, Stmt.If.class);
+        var ifStmt = getFirst("if (true) { print 1; }", Stmt.If.class);
         assertInstanceOf(Stmt.Block.class, ifStmt.thenBranch);
     }
 
@@ -247,13 +251,13 @@ class ParserTest {
 
     @Test
     void ifWithoutElse() {
-        var ifStmt = getStatement("if (true) print 1;", 0, Stmt.If.class);
+        var ifStmt = getFirst("if (true) print 1;", Stmt.If.class);
         assertNull(ifStmt.elseBranch);
     }
 
     @Test
     void ifWithElse() {
-        var ifStmt = getStatement("if (false) print 1; else print 2;", 0, Stmt.If.class);
+        var ifStmt = getFirst("if (false) print 1; else print 2;", Stmt.If.class);
         assertNotNull(ifStmt.elseBranch);
     }
 
@@ -261,10 +265,135 @@ class ParserTest {
     void danglingElseBindsToNearestIf() {
         // if (true) if (false) print 1; else print 2;
         // The else belongs to the INNER if
-        var outer = getStatement("if (true) if (false) print 1; else print 2;", 0, Stmt.If.class);
+        var outer = getFirst("if (true) if (false) print 1; else print 2;", Stmt.If.class);
         assertNull(outer.elseBranch); // outer if has NO else
         var inner = (Stmt.If) outer.thenBranch;
         assertNotNull(inner.elseBranch); // inner if has the else
+    }
+
+    // ── Func declaration ─────────────────────────────────────────────────────
+
+    @Test
+    void funcDeclarationNoParams() {
+        var func = getFirst("Func greet() { print 1; return 0; }", Stmt.Function.class);
+        assertEquals("greet", func.name.origin());
+        assertEquals(0, func.params.size());
+        assertEquals(2, func.body.size());
+    }
+
+    @Test
+    void funcDeclarationOneParam() {
+        var func = getFirst("Func double(x) { return x; }", Stmt.Function.class);
+        assertEquals(1, func.params.size());
+        assertEquals("x", func.params.get(0).origin());
+    }
+
+    @Test
+    void funcDeclarationMultipleParams() {
+        var func = getFirst("Func add(a, b, c) { return a; }", Stmt.Function.class);
+        assertEquals(3, func.params.size());
+        assertEquals("a", func.params.get(0).origin());
+        assertEquals("b", func.params.get(1).origin());
+        assertEquals("c", func.params.get(2).origin());
+    }
+
+    @Test
+    void duplicateParamNameThrows() {
+        assertThrows(ParseError.class, () -> parse("Func f(a, b, a) { return a; }"));
+    }
+
+    @Test
+    void funcWithoutReturnThrows() {
+        assertThrows(ParseError.class, () -> parse("Func f() { print 1; }"));
+    }
+
+    @Test
+    void returnInsideIfOnlyThrows() {
+        // 최상위에 return 없이 if 안에만 있으면 실행 보장 안 됨 → 오류
+        assertThrows(ParseError.class, () -> parse("Func f(x) { if (x) { return 1; } }"));
+    }
+
+    @Test
+    void funcBodyCanContainMultipleStatements() {
+        var func = getFirst("Func f(x) { var y = x; return y; }", Stmt.Function.class);
+        assertEquals(2, func.body.size());
+        assertInstanceOf(Stmt.Var.class, func.body.get(0));
+        assertInstanceOf(Stmt.Return.class, func.body.get(1));
+    }
+
+    // ── return statement ──────────────────────────────────────────────────────
+
+    @Test
+    void returnWithValue() {
+        var func = getFirst("Func f() { return 42; }", Stmt.Function.class);
+        var ret = (Stmt.Return) func.body.get(0);
+        assertNotNull(ret.value);
+        assertEquals(42.0, ((Expr.Literal) ret.value).value);
+    }
+
+    @Test
+    void returnWithoutValue() {
+        var func = getFirst("Func f() { return; }", Stmt.Function.class);
+        var ret = (Stmt.Return) func.body.get(0);
+        assertNull(ret.value);
+    }
+
+    @Test
+    void returnWithExpression() {
+        var func = getFirst("Func add(a, b) { return a + b; }", Stmt.Function.class);
+        var ret = (Stmt.Return) func.body.get(0);
+        assertInstanceOf(Expr.Binary.class, ret.value);
+    }
+
+    // ── function call expression ──────────────────────────────────────────────
+
+    @Test
+    void callExprNoArgs() {
+        var call = (Expr.Call) getFirst("foo();", Stmt.Expression.class).expression;
+        assertInstanceOf(Expr.Variable.class, call.callee);
+        assertEquals(0, call.arguments.size());
+    }
+
+    @Test
+    void callExprOneArg() {
+        var call = (Expr.Call) getFirst("foo(1);", Stmt.Expression.class).expression;
+        assertEquals(1, call.arguments.size());
+        assertEquals(1.0, ((Expr.Literal) call.arguments.get(0)).value);
+    }
+
+    @Test
+    void callExprMultipleArgs() {
+        var call = (Expr.Call) getFirst("foo(1, 2, 3);", Stmt.Expression.class).expression;
+        assertEquals(3, call.arguments.size());
+    }
+
+    @Test
+    void callExprArgCanBeExpression() {
+        var call = (Expr.Call) getFirst("foo(1 + 2);", Stmt.Expression.class).expression;
+        assertEquals(1, call.arguments.size());
+        assertInstanceOf(Expr.Binary.class, call.arguments.get(0));
+    }
+
+    // ── Func parse errors ─────────────────────────────────────────────────────
+
+    @Test
+    void missingFuncNameThrows() {
+        assertThrows(ParseError.class, () -> parse("Func () { }"));
+    }
+
+    @Test
+    void missingParenAfterFuncNameThrows() {
+        assertThrows(ParseError.class, () -> parse("Func foo { }"));
+    }
+
+    @Test
+    void missingClosingParenAfterParamsThrows() {
+        assertThrows(ParseError.class, () -> parse("Func foo(x { }"));
+    }
+
+    @Test
+    void missingBraceBeforeFuncBodyThrows() {
+        assertThrows(ParseError.class, () -> parse("Func foo() print 1;"));
     }
 
     // ── Parse error messages ──────────────────────────────────────────────────
@@ -289,13 +418,13 @@ class ParserTest {
 
     @Test
     void equalEqualTest(){
-        var ifStmt = getStatement("if (5 == 5) print \"bbq\";", 0, Stmt.If.class);
+        var ifStmt = getFirst("if (5 == 5) print \"bbq\";", Stmt.If.class);
         assertInstanceOf(Expr.Comparison.class, ifStmt.condition);
     }
 
     @Test
     void bangEqualTest(){
-        var ifStmt = getStatement("if (5 != 5) print \"bbq\";", 0, Stmt.If.class);
+        var ifStmt = getFirst("if (5 != 5) print \"bbq\";", Stmt.If.class);
         assertInstanceOf(Expr.Comparison.class, ifStmt.condition);
     }
 }

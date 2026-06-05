@@ -138,7 +138,7 @@ public class Checker implements Stmt.Visitor<Void> {
     // Stubs — full semantic rules for functions/arrays will be added when
     // the corresponding Parser support lands.
     @Override
-    public Void visitFuncDecl(Stmt.FuncDecl stmt) { return null; }
+    public Void visitFunction(Stmt.Function stmt) { return null; }
 
     @Override
     public Void visitReturn(Stmt.Return stmt) { return null; }

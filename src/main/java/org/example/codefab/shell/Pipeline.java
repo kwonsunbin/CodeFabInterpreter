@@ -65,4 +65,12 @@ public class Pipeline {
     private void printDiagnostics(List<Diagnostic> diagnostics) {
         for (Diagnostic d : diagnostics) out.println(d);
     }
+
+    // ── Accessors (file / debug modes) ────────────────────────────────────────
+
+    public Assembler  assembler() { return assembler; }
+    public Checker    checker()   { return checker; }
+    public Executor   executor()  { return executor; }
+    public Logger     log()       { return log; }
+    public PrintStream out()      { return out; }
 }

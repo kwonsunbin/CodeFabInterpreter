@@ -113,7 +113,7 @@ public class CheckerFold implements Stmt.Visitor<Void> {
     }
 
     @Override
-    public Void visitFuncDecl(Stmt.FuncDecl stmt) {
+    public Void visitFunction(Stmt.Function stmt) {
         Scope cur = scopes.peek();
         if (!cur.has(stmt.name.origin())) {
             cur.declare(stmt.name.origin());
@@ -125,7 +125,7 @@ public class CheckerFold implements Stmt.Visitor<Void> {
             s.declare(param.origin());
             s.define(param.origin());
         }
-        for (Stmt s : stmt.body.statements) execute(s);
+        for (Stmt s : stmt.body) execute(s);
         endScope();
         return null;
     }

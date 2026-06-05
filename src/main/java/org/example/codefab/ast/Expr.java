@@ -1,6 +1,7 @@
 package org.example.codefab.ast;
 
 import org.example.codefab.token.Token;
+import java.util.List;
 
 /**
  * Base class for all expression nodes.
@@ -95,8 +96,13 @@ public abstract sealed class Expr
     // ── Literal value: number, string, boolean ────────────────────────────────
     public static final class Literal extends Expr {
         public final Object value; // Double | String | Boolean | null
+        public final int line;     // 소스 줄번호 (디버그 표시용). 미상이면 -1
 
-        public Literal(Object value) { this.value = value; }
+        public Literal(Object value) { this(value, -1); }
+
+        public Literal(Object value, int line) {
+            this.value = value; this.line = line;
+        }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitLiteral(this); }
     }
@@ -126,32 +132,34 @@ public abstract sealed class Expr
         @Override public <R> R accept(Visitor<R> v) { return v.visitAssign(this); }
     }
 
-    // ── Function call: callee(args...) ─────────────────────────────────────────
+    // ── Function call: callee(arg1, arg2, ...) ────────────────────────────────
     public static final class Call extends Expr {
         public final Expr callee;
-        public final Token paren;          // closing ')' — carries line for errors
-        public final java.util.List<Expr> arguments;
+        public final Token paren; // closing ')' — used for error reporting
+        public final List<Expr> arguments;
 
-        public Call(Expr callee, Token paren, java.util.List<Expr> arguments) {
-            this.callee = callee; this.paren = paren; this.arguments = arguments;
+        public Call(Expr callee, Token paren, List<Expr> arguments) {
+            this.callee = callee;
+            this.paren = paren;
+            this.arguments = arguments;
         }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitCall(this); }
     }
 
-    // ── Array literal: [e0, e1, ...] ───────────────────────────────────────────
+    // ── Array literal: [e0, e1, ...] ──────────────────────────────────────────
     public static final class ArrayLiteral extends Expr {
         public final Token bracket;        // '[' — carries line for errors
-        public final java.util.List<Expr> elements;
+        public final List<Expr> elements;
 
-        public ArrayLiteral(Token bracket, java.util.List<Expr> elements) {
+        public ArrayLiteral(Token bracket, List<Expr> elements) {
             this.bracket = bracket; this.elements = elements;
         }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitArrayLiteral(this); }
     }
 
-    // ── Array index read: target[index] ────────────────────────────────────────
+    // ── Array index read/write: target[index] ─────────────────────────────────
     public static final class ArrayIndex extends Expr {
         public final Expr target;
         public final Token bracket;        // '[' — carries line for errors

@@ -7,10 +7,10 @@ import java.util.List;
 /** Runtime representation of a user-defined function with a captured closure. */
 public class CodeFabFunction implements CodeFabCallable {
 
-    public final Stmt.FuncDecl declaration;
+    public final Stmt.Function declaration;
     private final Environment closure;
 
-    public CodeFabFunction(Stmt.FuncDecl declaration, Environment closure) {
+    public CodeFabFunction(Stmt.Function declaration, Environment closure) {
         this.declaration = declaration;
         this.closure = closure;
     }
@@ -27,7 +27,7 @@ public class CodeFabFunction implements CodeFabCallable {
             funcEnv.define(declaration.params.get(i).origin(), arguments.get(i));
         }
         try {
-            executor.executeBlock(declaration.body.statements, funcEnv);
+            executor.executeBlock(declaration.body, funcEnv);
         } catch (ReturnException ret) {
             return ret.value;
         }
