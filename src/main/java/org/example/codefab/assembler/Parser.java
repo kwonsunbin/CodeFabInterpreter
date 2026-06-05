@@ -113,9 +113,10 @@ public class Parser {
 
     // ── Expressions (precedence: low → high) ──────────────────────────────────
 
-    private Expr leftAssoc(Supplier<Expr> operand, NodeBuilder builder, TokenType... ops) {
+    private Expr leftAssoc(Supplier<Expr> operand, TokenType... ops) {
         Expr expr = operand.get();
-        while (match(ops)) expr = builder.build(expr, previous(), operand.get());
+        while (match(ops))
+            expr = Expr.builder().left(expr).op(previous()).right(operand.get()).build();
         return expr;
     }
 
@@ -130,37 +131,39 @@ public class Parser {
         Expr expr = or();
         if (match(TokenType.EQUAL)) {
             Expr value = assignment();
-            if (expr instanceof Expr.Variable v) return new Expr.Assign(v.name, value);
+            if (expr instanceof Expr.Variable v)
+                return Expr.builder().name(v.name).value(value).build();
             throw new ParseError(peek().line(), "Invalid assignment target.");
         }
         return expr;
     }
 
     private Expr or() {
-        return leftAssoc(this::and, Expr.Logical::new, TokenType.OR);
+        return leftAssoc(this::and, TokenType.OR);
     }
 
     private Expr and() {
-        return leftAssoc(this::comparison, Expr.Logical::new, TokenType.AND);
+        return leftAssoc(this::comparison, TokenType.AND);
     }
 
     private Expr comparison() {
-        return leftAssoc(this::term, Expr.Comparison::new,
+        return leftAssoc(this::term,
                 TokenType.GREATER, TokenType.GREATER_EQUAL,
                 TokenType.LESS, TokenType.LESS_EQUAL,
                 TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL);
     }
 
     private Expr term() {
-        return leftAssoc(this::factor, Expr.Binary::new, TokenType.PLUS, TokenType.MINUS);
+        return leftAssoc(this::factor, TokenType.PLUS, TokenType.MINUS);
     }
 
     private Expr factor() {
-        return leftAssoc(this::unary, Expr.Binary::new, TokenType.STAR, TokenType.SLASH);
+        return leftAssoc(this::unary, TokenType.STAR, TokenType.SLASH);
     }
 
     private Expr unary() {
-        if (match(TokenType.MINUS, TokenType.BANG)) return new Expr.Unary(previous(), unary());
+        if (match(TokenType.MINUS, TokenType.BANG))
+            return Expr.builder().op(previous()).operand(unary()).build();
         return primary();
     }
 
@@ -169,12 +172,13 @@ public class Parser {
      */
     private Expr primary() {
         if (match(TokenType.NUMBER, TokenType.STRING, TokenType.TRUE, TokenType.FALSE))
-            return new Expr.Literal(previous().value());
-        if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
+            return Expr.builder().literalValue(previous().value()).build();
+        if (match(TokenType.IDENTIFIER))
+            return Expr.builder().name(previous()).build();
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
-            return new Expr.Grouping(expr);
+            return Expr.builder().expression(expr).build();
         }
         throw new ParseError(peek().line(), "Expect expression.");
     }
@@ -218,8 +222,4 @@ public class Parser {
         return tokens.get(current - 1);
     }
 
-    @FunctionalInterface
-    private interface NodeBuilder {
-        Expr build(Expr left, Token op, Expr right);
-    }
 }
