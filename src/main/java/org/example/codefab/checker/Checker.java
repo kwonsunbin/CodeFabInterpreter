@@ -167,6 +167,7 @@ public class Checker implements Stmt.Visitor<Void> {
             case Expr.Unary u      -> scanExpr(u.operand);
             case Expr.Grouping g   -> scanExpr(g.expression);
             case Expr.Literal ignored -> {}
+            case Expr.Call  ignored -> {}
         }
     }
 

@@ -20,8 +20,9 @@ public abstract sealed class Stmt
         R visitPrint(Print stmt);
         R visitBlock(Block stmt);
         R visitExpression(Expression stmt);
-        R visitFunction(Function stmt);
-        R visitReturn(Return stmt);
+        // TODO: Checker/Executor에서 visitFunction, visitReturn 구현 필요
+        default R visitFunction(Function stmt) { throw new UnsupportedOperationException("visitFunction not implemented"); }
+        default R visitReturn(Return stmt)     { throw new UnsupportedOperationException("visitReturn not implemented"); }
     }
 
     public abstract <R> R accept(Visitor<R> visitor);

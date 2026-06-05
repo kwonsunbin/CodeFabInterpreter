@@ -22,7 +22,8 @@ public abstract sealed class Expr
         R visitLiteral(Literal expr);
         R visitVariable(Variable expr);
         R visitAssign(Assign expr);
-        R visitCall(Call expr);
+        // TODO: Checker/Executor에서 visitCall 구현 필요
+        default R visitCall(Call expr) { throw new UnsupportedOperationException("visitCall not implemented"); }
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
