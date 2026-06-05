@@ -1,0 +1,2 @@
+# 배치 파일은 cmd가 LF를 잘못 파싱하므로 항상 CRLF 유지
+*.bat text eol=crlf
