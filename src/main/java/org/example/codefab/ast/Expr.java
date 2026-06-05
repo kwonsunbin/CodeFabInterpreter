@@ -2,6 +2,9 @@ package org.example.codefab.ast;
 
 import org.example.codefab.token.Token;
 import java.util.List;
+import org.example.codefab.token.TokenType;
+import java.util.EnumSet;
+import java.util.Set;
 
 /**
  * Base class for all expression nodes.
@@ -15,6 +18,49 @@ public abstract sealed class Expr
                 Expr.ArrayGet, Expr.ArraySet {
 
     public Object foldedValue = null; // set by CheckerFold; null = 폴딩 안 됨
+
+    public static Builder builder() { return new Builder(); }
+
+    /**
+     * TokenType 기반 단일 Builder.
+     * 세팅된 필드 조합과 op의 TokenType을 보고 적절한 Expr 서브클래스를 결정한다.
+     */
+    public static final class Builder {
+        private static final Set<TokenType> LOGICAL_OPS = EnumSet.of(
+                TokenType.AND, TokenType.OR);
+        private static final Set<TokenType> COMPARISON_OPS = EnumSet.of(
+                TokenType.GREATER, TokenType.GREATER_EQUAL,
+                TokenType.LESS,    TokenType.LESS_EQUAL,
+                TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL);
+
+        private Expr  left, right, operand, expression, value;
+        private Token op, name;
+        private Object literalValue;
+        private boolean hasLiteralValue = false;
+
+        public Builder left(Expr left)               { this.left = left;             return this; }
+        public Builder right(Expr right)             { this.right = right;           return this; }
+        public Builder operand(Expr operand)         { this.operand = operand;       return this; }
+        public Builder expression(Expr expression)   { this.expression = expression; return this; }
+        public Builder value(Expr value)             { this.value = value;           return this; }
+        public Builder op(Token op)                  { this.op = op;                 return this; }
+        public Builder name(Token name)              { this.name = name;             return this; }
+        public Builder literalValue(Object val)      { this.literalValue = val; this.hasLiteralValue = true; return this; }
+
+        public Expr build() {
+            if (left != null && op != null && right != null) {
+                if (LOGICAL_OPS.contains(op.type()))    return new Logical(left, op, right);
+                if (COMPARISON_OPS.contains(op.type())) return new Comparison(left, op, right);
+                return new Binary(left, op, right);
+            }
+            if (op != null && operand != null)   return new Unary(op, operand);
+            if (name != null && value != null)   return new Assign(name, value);
+            if (name != null)                    return new Variable(name);
+            if (expression != null)              return new Grouping(expression);
+            if (hasLiteralValue)                 return new Literal(literalValue);
+            throw new IllegalStateException("Cannot determine Expr type from provided fields.");
+        }
+    }
 
     public interface Visitor<R> {
         R visitBinary(Binary expr);
