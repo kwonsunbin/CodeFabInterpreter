@@ -3,100 +3,125 @@ package org.example.codefab.executor;
 import org.example.codefab.error.RuntimeError;
 import org.example.codefab.token.Token;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Runtime variable environment with lexical scoping.
- * Each block creates a child Environment with a pointer to its enclosing scope.
+ * Runtime variable environment backed by an ArrayList of scope Maps.
  *
- * <p>Responsibility boundary:
+ * <p>Layout: {@code scopes.get(0)} = outermost (global or function root),
+ * {@code scopes.get(scopes.size()-1)} = current (innermost) scope.
+ *
+ * <p>Depth semantics (set by Checker):
  * <ul>
- *   <li>Semantic errors (undeclared variable, block scope violation, forward reference)
- *       are detected statically by {@code Checker} before execution begins.</li>
- *   <li>This class throws {@code RuntimeError} for "Undefined variable" only as a
- *       defensive assertion — it should be unreachable when the full pipeline runs.</li>
- *   <li>True runtime errors (type mismatch, division by zero) are raised by
- *       {@code Executor} and remain the sole responsibility of the execution layer.</li>
+ *   <li>depth 0 = current scope (innermost)</li>
+ *   <li>depth 1 = one scope up, etc.</li>
  * </ul>
+ * {@code getAt} / {@code setAt} resolve to {@code scopes.get(size - 1 - depth)} — O(1).
+ *
+ * <p>Closure capture: {@code new Environment(closure)} shallow-copies the closure's
+ * scope list and appends a fresh function-body scope.  Shared Map entries remain
+ * visible across all environments that reference them, giving correct mutable-closure
+ * semantics with no extra bookkeeping.
  */
 public class Environment {
 
-    private final Environment enclosing;
-    private final Map<String, Object> values = new HashMap<>();
+    private final List<Map<String, Object>> scopes;
 
-    /** Global environment constructor. */
-    public Environment() { this.enclosing = null; }
-
-    /** Child environment constructor for blocks and for-loops. */
-    public Environment(Environment enclosing) { this.enclosing = enclosing; }
-
-    /** Declare a new variable in this scope. */
-    public void define(String name, Object value) {
-        values.put(name, value);
+    /** Creates a new global environment (single global scope). */
+    public Environment() {
+        scopes = new ArrayList<>();
+        scopes.add(new HashMap<>());
     }
 
-    /** Read a variable, walking the enclosing chain. */
+    /**
+     * Creates a function-call environment: shallow-copies the closure's scope stack
+     * and appends a new scope for the function body.
+     */
+    public Environment(Environment closure) {
+        scopes = new ArrayList<>(closure.scopes);
+        scopes.add(new HashMap<>());
+    }
+
+    /** Push a new scope (called at block/for-loop entry). */
+    public void pushScope() { scopes.add(new HashMap<>()); }
+
+    /** Pop the current scope (called at block/for-loop exit). */
+    public void popScope()  { scopes.remove(scopes.size() - 1); }
+
+    /** Declare a variable in the current (innermost) scope. */
+    public void define(String name, Object value) {
+        scopes.get(scopes.size() - 1).put(name, value);
+    }
+
+    // ── Static binding (O(1) depth-indexed access) ────────────────────────────
+
+    /** Reads the variable at the pre-computed scope depth (O(1)). */
+    public Object getAt(int depth, String name) {
+        return scopes.get(scopes.size() - 1 - depth).get(name);
+    }
+
+    /** Writes the variable at the pre-computed scope depth (O(1)). */
+    public void setAt(int depth, String name, Object value) {
+        scopes.get(scopes.size() - 1 - depth).put(name, value);
+    }
+
+    // ── Fallback chain-walk (depth == -1, should be unreachable after Checker) ─
+
+    /** Reads a variable by walking scopes from innermost to outermost. */
     public Object get(Token name) {
         String key = name.origin();
-        Object val = values.get(key);
-        if (val != null || values.containsKey(key))
-            return val;
-        if (enclosing != null)
-            return enclosing.get(name);
+        for (int i = scopes.size() - 1; i >= 0; i--) {
+            Map<String, Object> scope = scopes.get(i);
+            if (scope.containsKey(key)) return scope.get(key);
+        }
         throw new RuntimeError(name, "Undefined variable '" + key + "'.");
     }
 
-    /** Assign to an existing variable in the nearest scope that defines it. */
+    /** Assigns a variable by walking scopes from innermost to outermost. */
     public void assign(Token name, Object value) {
-        if (values.containsKey(name.origin())) { values.put(name.origin(), value); return; }
-        if (enclosing != null) { enclosing.assign(name, value); return; }
-        throw new RuntimeError(name, "Undefined variable '" + name.origin() + "'.");
-    }
-
-    // ── Static binding (scope distance pre-computed by Checker) ────────────────
-    // get/assign은 변수를 찾을 때까지 enclosing 체인을 거슬러 오른다(O(depth)).
-    // Checker가 미리 계산한 거리(distance)가 있으면, 그 위치로 한 번에 점프해
-    // O(1)로 읽고 쓴다. 바인딩 존재는 Checker가 정적으로 보장한다.
-
-    /** distance 만큼 enclosing 체인을 거슬러 올라간 환경 반환 (0 = 현재 스코프). */
-    private Environment ancestor(int distance) {
-        Environment env = this;
-        for (int i = 0; i < distance; i++) env = env.enclosing;
-        return env;
-    }
-
-    /** 정적으로 해석된 거리에서 변수 값을 즉시 읽는다 (O(1)). */
-    public Object getAt(int distance, String name) {
-        return ancestor(distance).values.get(name);
-    }
-
-    /** 정적으로 해석된 거리의 변수에 값을 즉시 기록한다 (O(1)). */
-    public void setAt(int distance, String name, Object value) {
-        ancestor(distance).values.put(name, value);
+        String key = name.origin();
+        for (int i = scopes.size() - 1; i >= 0; i--) {
+            if (scopes.get(i).containsKey(key)) {
+                scopes.get(i).put(key, value);
+                return;
+            }
+        }
+        throw new RuntimeError(name, "Undefined variable '" + key + "'.");
     }
 
     // ── Debug accessors ───────────────────────────────────────────────────────
 
-    /** 이름이 이 스코프 또는 상위 체인에 존재하는지 확인 */
+    /** Returns true if the name exists anywhere in the scope chain. */
     public boolean has(String name) {
-        if (values.containsKey(name)) return true;
-        return enclosing != null && enclosing.has(name);
+        for (int i = scopes.size() - 1; i >= 0; i--) {
+            if (scopes.get(i).containsKey(name)) return true;
+        }
+        return false;
     }
 
-    /** 스코프 체인을 탐색해 변수 값을 반환. 없으면 null */
+    /** Walks the scope chain and returns the value, or null if not found. */
     public Object getByName(String name) {
-        if (values.containsKey(name)) return values.get(name);
-        if (enclosing != null) return enclosing.getByName(name);
+        for (int i = scopes.size() - 1; i >= 0; i--) {
+            if (scopes.get(i).containsKey(name)) return scopes.get(i).get(name);
+        }
         return null;
     }
 
-    /** 현재 스코프(직접 선언된 변수만)의 읽기 전용 스냅샷 반환 */
+    /** Returns a read-only view of the current (innermost) scope's variables. */
     public Map<String, Object> snapshot() {
-        return Collections.unmodifiableMap(values);
+        return Collections.unmodifiableMap(scopes.get(scopes.size() - 1));
     }
 
-    /** 상위(enclosing) 환경 반환. 전역 스코프이면 null */
-    public Environment enclosing() { return enclosing; }
+    /**
+     * Returns all scopes as an unmodifiable list, ordered outermost→innermost
+     * (index 0 = global / function root, last index = current scope).
+     * Used by Debugger to iterate the full scope chain without pointer chasing.
+     */
+    public List<Map<String, Object>> allScopes() {
+        return Collections.unmodifiableList(scopes);
+    }
 }

@@ -62,9 +62,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Void visitFor(Stmt.For stmt) {
-        Environment loopEnv = new Environment(environment);
-        Environment previous = environment;
-        environment = loopEnv;
+        environment.pushScope();
         if (listener != null) listener.onEnterScope();
         try {
             if (stmt.initializer != null) execute(stmt.initializer);
@@ -74,7 +72,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
             }
         } finally {
             if (listener != null) listener.onExitScope();
-            environment = previous;
+            environment.popScope();
         }
         return null;
     }
@@ -87,7 +85,14 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Void visitBlock(Stmt.Block stmt) {
-        executeBlock(stmt.statements, new Environment(environment));
+        environment.pushScope();
+        if (listener != null) listener.onEnterScope();
+        try {
+            for (Stmt s : stmt.statements) execute(s);
+        } finally {
+            if (listener != null) listener.onExitScope();
+            environment.popScope();
+        }
         return null;
     }
 

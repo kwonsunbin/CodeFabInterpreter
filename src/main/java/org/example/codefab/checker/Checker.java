@@ -219,13 +219,26 @@ public class Checker implements Stmt.Visitor<Void> {
                 yield null;
             }
 
-             case Expr.Call c -> {
-                  scanExpr(c.callee);
-                  for (Expr arg : c.arguments) scanExpr(arg);
-                  yield null;
-              }
-          };
-      }
+            case Expr.Call c -> {
+                scanExpr(c.callee);
+                for (Expr arg : c.arguments) scanExpr(arg);
+                yield null;
+            }
+
+            case Expr.ArrayGet ag -> {
+                scanExpr(new Expr.Variable(ag.name));
+                scanExpr(ag.index);
+                yield null;
+            }
+
+            case Expr.ArraySet as -> {
+                scanExpr(new Expr.Variable(as.name));
+                scanExpr(as.index);
+                scanExpr(as.value);
+                yield null;
+            }
+        };
+    }
 
     // ── Constant fold helpers ─────────────────────────────────────────────────
 
