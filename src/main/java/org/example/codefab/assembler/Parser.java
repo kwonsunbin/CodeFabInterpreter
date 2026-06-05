@@ -83,10 +83,16 @@ public class Parser {
     }
 
     /**
-     * var IDENTIFIER ( = expression )? ;
+     * var IDENTIFIER ( "[" expression "]" | "=" expression )? ;
      */
     private Stmt varDeclaration() {
         Token name = consume(TokenType.IDENTIFIER, "Expect variable name.");
+        if (match(TokenType.LEFT_BRACKET)) {
+            Expr size = expression();
+            consume(TokenType.RIGHT_BRACKET, "Expect ']' after array size.");
+            consume(TokenType.SEMICOLON, "Expect ';' after array declaration.");
+            return new Stmt.ArrayDecl(name, size);
+        }
         Expr initializer = match(TokenType.EQUAL) ? expression() : null;
         consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
         return new Stmt.Var(name, initializer);
@@ -163,14 +169,13 @@ public class Parser {
     }
 
     /**
-     * assignment → IDENTIFIER = assignment | or  (right-associative)
+     * assignment → IDENTIFIER = assignment | IDENTIFIER "[" expr "]" = assignment | or
      */
     private Expr assignment() {
         Expr expr = or();
         if (match(TokenType.EQUAL)) {
             Expr value = assignment();
-            if (expr instanceof Expr.Variable v)
-                return Expr.builder().name(v.name).value(value).build();
+            if (expr instanceof Expr.Variable v) return new Expr.Assign(v.name, value);
             throw new ParseError(peek().line(), "Invalid assignment target.");
         }
         return expr;
@@ -227,13 +232,20 @@ public class Parser {
         return new Expr.Call(callee, paren, arguments);
     }
     /**
-     * primary = NUMBER | STRING | true | false | IDENTIFIER | ( expression )
+     * primary = NUMBER | STRING | true | false | IDENTIFIER ( "[" expression "]" )? | ( expression )
      */
     private Expr primary() {
         if (match(TokenType.NUMBER, TokenType.STRING, TokenType.TRUE, TokenType.FALSE))
             return Expr.builder().literalValue(previous().value()).build();
-        if (match(TokenType.IDENTIFIER))
-            return Expr.builder().name(previous()).build();
+        if (match(TokenType.IDENTIFIER)) {
+            Token name = previous();
+            if (match(TokenType.LEFT_BRACKET)) {
+                Expr index = expression();
+                consume(TokenType.RIGHT_BRACKET, "Expect ']' after index.");
+                return new Expr.ArrayGet(name, index);
+            }
+            return Expr.builder().name(name).build();;
+        }
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
