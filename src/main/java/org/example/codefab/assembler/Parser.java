@@ -7,7 +7,9 @@ import org.example.codefab.token.Token;
 import org.example.codefab.token.TokenType;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -53,9 +55,13 @@ public class Parser {
         Token name = consume(TokenType.IDENTIFIER, "Expect function name.");
         consume(TokenType.LEFT_PAREN, "Expect '(' after function name.");
         List<Token> params = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         if (!check(TokenType.RIGHT_PAREN)) {
             do {
-                params.add(consume(TokenType.IDENTIFIER, "Expect parameter name."));
+                Token param = consume(TokenType.IDENTIFIER, "Expect parameter name.");
+                if (!seen.add(param.origin()))
+                    throw new ParseError(param.line(), "Duplicate parameter name '" + param.origin() + "'.");
+                params.add(param);
             } while (match(TokenType.COMMA));
         }
         consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");

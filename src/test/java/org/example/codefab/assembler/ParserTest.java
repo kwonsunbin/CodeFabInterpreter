@@ -298,6 +298,11 @@ class ParserTest {
     }
 
     @Test
+    void duplicateParamNameThrows() {
+        assertThrows(ParseError.class, () -> parse("Func f(a, b, a) { return a; }"));
+    }
+
+    @Test
     void funcBodyCanContainMultipleStatements() {
         var func = getFirst("Func f(x) { var y = x; return y; }", Stmt.Function.class);
         assertEquals(2, func.body.size());
