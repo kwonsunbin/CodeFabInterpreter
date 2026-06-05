@@ -1,17 +1,56 @@
 #!/usr/bin/env bash
-# CodeFab 공장 제어 쉘 래퍼
+# CodeFab 공장 제어 쉘 래퍼 (크로스 플랫폼)
 #
 # 사용법:
 #   ./factory                    # REPL (대화형 프롬프트 모드)
 #   ./factory run <file.txt>     # 파일 모드 — 스크립트 실행
 #   ./factory debug <file.txt>   # 디버그 모드 — 구문 단위 점검
 #   --verbose                    # 라이프사이클 로그 출력 (어느 모드든 사용 가능)
+#
+# 실행 환경의 OS를 감지해 알맞은 경로로 분기한다:
+#   Linux              → gradlew (JAVA_HOME 기본값: ~/.jdks)
+#   macOS (Darwin)     → gradlew (JAVA_HOME은 /usr/libexec/java_home으로 탐색)
+#   Windows (Git Bash) → gradlew.bat 위임
+# 네이티브 cmd/PowerShell에서는 factory.bat을 사용한다.
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-JAVA_HOME="${JAVA_HOME:-$HOME/.jdks/temurin-21.0.11}"
-export JAVA_HOME
+OS_NAME="$(uname -s)"
+GRADLEW="$SCRIPT_DIR/gradlew"
 
-exec "$SCRIPT_DIR/gradlew" -q --console=plain run --args="$*"
+case "$OS_NAME" in
+  Linux*)
+    # Linux: IntelliJ 기본 JDK 설치 경로를 기본값으로 사용
+    JAVA_HOME="${JAVA_HOME:-$HOME/.jdks/temurin-21.0.11}"
+    export JAVA_HOME
+    ;;
+  Darwin*)
+    # macOS: JAVA_HOME 미설정 시 시스템 java_home 유틸리티로 JDK 21 탐색
+    if [ -z "${JAVA_HOME:-}" ] && [ -x /usr/libexec/java_home ]; then
+      JAVA_HOME="$(/usr/libexec/java_home -v 21 2>/dev/null || true)"
+    fi
+    if [ -n "${JAVA_HOME:-}" ]; then
+      export JAVA_HOME
+    fi
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    # Windows (Git Bash / MSYS / Cygwin): Windows 배치 래퍼로 위임
+    GRADLEW="$SCRIPT_DIR/gradlew.bat"
+    ;;
+  *)
+    echo "factory: 지원하지 않는 OS입니다: $OS_NAME" >&2
+    echo "factory: Linux / macOS / Windows(Git Bash)를 지원합니다." >&2
+    exit 1
+    ;;
+esac
+
+# 인자가 없으면(REPL 모드) --args를 아예 넘기지 않는다.
+# Gradle은 빈 --args=""를 에러로 거부한다.
+GRADLE_ARGS=(-q --console=plain run)
+if [ "$#" -gt 0 ]; then
+  GRADLE_ARGS+=(--args="$*")
+fi
+
+exec "$GRADLEW" "${GRADLE_ARGS[@]}"

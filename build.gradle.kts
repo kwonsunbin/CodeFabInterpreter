@@ -35,6 +35,8 @@ tasks.withType<JavaCompile> {
 
 tasks.named<JavaExec>("run") {
     standardInput = System.`in`
+    // Windows 기본 콘솔 인코딩(CP949)에서도 한글이 깨지지 않도록 UTF-8 입출력 강제
+    jvmArgs("-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8", "-Dstdin.encoding=UTF-8")
 }
 
 tasks.test {

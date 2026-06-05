@@ -123,6 +123,38 @@ class EndToEndTest {
         assertEquals("false", run("print 3 > 5;").stdout());
     }
 
+    @Test void equalEqual_sameNumbers_true() {
+        assertEquals("true", run("print 5 == 5;").stdout());
+    }
+
+    @Test void equalEqual_differentNumbers_false() {
+        assertEquals("false", run("print 1 == 2;").stdout());
+    }
+
+    @Test void bangEqual_differentNumbers_true() {
+        assertEquals("true", run("print 1 != 2;").stdout());
+    }
+
+    @Test void bangEqual_sameNumbers_false() {
+        assertEquals("false", run("print 3 != 3;").stdout());
+    }
+
+    @Test void equalEqual_inIfCondition_prints() {
+        assertEquals("bbq", run("if (5 == 5) print \"bbq\";").stdout());
+    }
+
+    @Test void bangEqual_inIfCondition_skips() {
+        assertEquals("", run("if (5 != 5) print \"bbq\";").stdout());
+    }
+
+    @Test void equalEqual_strings_true() {
+        assertEquals("true", run("print \"hello\" == \"hello\";").stdout());
+    }
+
+    @Test void equalEqual_crossType_false() {
+        assertEquals("false", run("print 1 == \"1\";").stdout());
+    }
+
     // ── String concatenation ──────────────────────────────────────────────────
 
     @Test void stringConcat() {
@@ -412,10 +444,9 @@ class EndToEndTest {
         assertTrue(result.runtimeError().contains("타입과") && result.runtimeError().contains("연산은 지원하지 않습니다"));
     }
 
-    @Test void compareNonNumbers_runtimeError() {
-        // 타입 불일치는 실행 중에만 알 수 있으므로 Executor가 RuntimeError로 처리
-        var result = run("print \"a\" < \"b\";");
-        assertTrue(result.hasRuntimeError());
-        assertTrue(result.runtimeError().contains("타입과") && result.runtimeError().contains("연산은 지원하지 않습니다"));
+    @Test void compareStrings_lexicographic() {
+        // 문자열 대소 비교는 사전순으로 처리됨
+        assertEquals("true",  run("print \"a\" < \"b\";").stdout());
+        assertEquals("false", run("print \"b\" < \"a\";").stdout());
     }
 }

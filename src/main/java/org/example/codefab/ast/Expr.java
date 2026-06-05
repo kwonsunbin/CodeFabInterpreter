@@ -11,11 +11,10 @@ import java.util.List;
 public abstract sealed class Expr
         permits Expr.Binary, Expr.Logical, Expr.Comparison,
                 Expr.Unary, Expr.Grouping, Expr.Literal,
-                Expr.Variable, Expr.Assign,
-                Expr.Call, Expr.ArrayLiteral, Expr.ArrayIndex {
+                Expr.Variable, Expr.Assign, Expr.Call,
+                Expr.ArrayLiteral, Expr.ArrayIndex {
 
-    /** Set by CheckerFold; null = 폴딩 안 됨 */
-    public Object foldedValue = null;
+    public Object foldedValue = null; // set by CheckerFold; null = 폴딩 안 됨
 
     public interface Visitor<R> {
         R visitBinary(Binary expr);
@@ -26,9 +25,9 @@ public abstract sealed class Expr
         R visitLiteral(Literal expr);
         R visitVariable(Variable expr);
         R visitAssign(Assign expr);
-        R visitCall(Call expr);
         R visitArrayLiteral(ArrayLiteral expr);
         R visitArrayIndex(ArrayIndex expr);
+        default R visitCall(Call expr) { throw new UnsupportedOperationException("visitCall not implemented"); }
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -110,8 +109,7 @@ public abstract sealed class Expr
     // ── Variable read ─────────────────────────────────────────────────────────
     public static final class Variable extends Expr {
         public final Token name;
-        /** Set by CheckerDepth; 0 = current scope, N = N hops up, -1 = unresolved */
-        public int depth = -1;
+        public int depth = -1; // set by CheckerDepth; 0 = current scope, N = N hops up
 
         public Variable(Token name) { this.name = name; }
 
@@ -122,8 +120,7 @@ public abstract sealed class Expr
     public static final class Assign extends Expr {
         public final Token name;
         public final Expr value;
-        /** Set by CheckerDepth; 0 = current scope, N = N hops up, -1 = unresolved */
-        public int depth = -1;
+        public int depth = -1; // set by CheckerDepth; 0 = current scope, N = N hops up
 
         public Assign(Token name, Expr value) {
             this.name = name; this.value = value;
@@ -149,24 +146,21 @@ public abstract sealed class Expr
 
     // ── Array literal: [e0, e1, ...] ──────────────────────────────────────────
     public static final class ArrayLiteral extends Expr {
-        public final Token bracket;        // '[' — carries line for errors
         public final List<Expr> elements;
 
-        public ArrayLiteral(Token bracket, List<Expr> elements) {
-            this.bracket = bracket; this.elements = elements;
-        }
+        public ArrayLiteral(List<Expr> elements) { this.elements = elements; }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitArrayLiteral(this); }
     }
 
-    // ── Array index read/write: target[index] ─────────────────────────────────
+    // ── Array index access: target[index] ─────────────────────────────────────
     public static final class ArrayIndex extends Expr {
         public final Expr target;
-        public final Token bracket;        // '[' — carries line for errors
         public final Expr index;
+        public final Token bracket; // '[' token — used for error reporting
 
-        public ArrayIndex(Expr target, Token bracket, Expr index) {
-            this.target = target; this.bracket = bracket; this.index = index;
+        public ArrayIndex(Expr target, Expr index, Token bracket) {
+            this.target = target; this.index = index; this.bracket = bracket;
         }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitArrayIndex(this); }
