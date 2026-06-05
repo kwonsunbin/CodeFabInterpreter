@@ -18,13 +18,13 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 OS_NAME="$(uname -s)"
+GRADLEW="$SCRIPT_DIR/gradlew"
 
 case "$OS_NAME" in
   Linux*)
     # Linux: IntelliJ 기본 JDK 설치 경로를 기본값으로 사용
     JAVA_HOME="${JAVA_HOME:-$HOME/.jdks/temurin-21.0.11}"
     export JAVA_HOME
-    exec "$SCRIPT_DIR/gradlew" -q --console=plain run --args="$*"
     ;;
   Darwin*)
     # macOS: JAVA_HOME 미설정 시 시스템 java_home 유틸리티로 JDK 21 탐색
@@ -34,11 +34,10 @@ case "$OS_NAME" in
     if [ -n "${JAVA_HOME:-}" ]; then
       export JAVA_HOME
     fi
-    exec "$SCRIPT_DIR/gradlew" -q --console=plain run --args="$*"
     ;;
   MINGW*|MSYS*|CYGWIN*)
     # Windows (Git Bash / MSYS / Cygwin): Windows 배치 래퍼로 위임
-    exec "$SCRIPT_DIR/gradlew.bat" -q --console=plain run --args="$*"
+    GRADLEW="$SCRIPT_DIR/gradlew.bat"
     ;;
   *)
     echo "factory: 지원하지 않는 OS입니다: $OS_NAME" >&2
@@ -46,3 +45,12 @@ case "$OS_NAME" in
     exit 1
     ;;
 esac
+
+# 인자가 없으면(REPL 모드) --args를 아예 넘기지 않는다.
+# Gradle은 빈 --args=""를 에러로 거부한다.
+GRADLE_ARGS=(-q --console=plain run)
+if [ "$#" -gt 0 ]; then
+  GRADLE_ARGS+=(--args="$*")
+fi
+
+exec "$GRADLEW" "${GRADLE_ARGS[@]}"

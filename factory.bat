@@ -9,5 +9,10 @@ rem   --verbose                  라이프사이클 로그 출력 (어느 모드
 
 setlocal
 set "SCRIPT_DIR=%~dp0"
-call "%SCRIPT_DIR%gradlew.bat" -q --console=plain run --args="%*"
+rem 인자가 없으면(REPL 모드) --args를 넘기지 않는다 — Gradle은 빈 --args=""를 거부한다.
+if "%~1"=="" (
+    call "%SCRIPT_DIR%gradlew.bat" -q --console=plain run
+) else (
+    call "%SCRIPT_DIR%gradlew.bat" -q --console=plain run --args="%*"
+)
 endlocal
