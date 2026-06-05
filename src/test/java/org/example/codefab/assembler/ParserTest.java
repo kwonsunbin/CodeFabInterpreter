@@ -275,10 +275,10 @@ class ParserTest {
 
     @Test
     void funcDeclarationNoParams() {
-        var func = getFirst("Func greet() { print 1; }", Stmt.Function.class);
+        var func = getFirst("Func greet() { print 1; return 0; }", Stmt.Function.class);
         assertEquals("greet", func.name.origin());
         assertEquals(0, func.params.size());
-        assertEquals(1, func.body.size());
+        assertEquals(2, func.body.size());
     }
 
     @Test
@@ -300,6 +300,17 @@ class ParserTest {
     @Test
     void duplicateParamNameThrows() {
         assertThrows(ParseError.class, () -> parse("Func f(a, b, a) { return a; }"));
+    }
+
+    @Test
+    void funcWithoutReturnThrows() {
+        assertThrows(ParseError.class, () -> parse("Func f() { print 1; }"));
+    }
+
+    @Test
+    void returnInsideIfOnlyThrows() {
+        // 최상위에 return 없이 if 안에만 있으면 실행 보장 안 됨 → 오류
+        assertThrows(ParseError.class, () -> parse("Func f(x) { if (x) { return 1; } }"));
     }
 
     @Test

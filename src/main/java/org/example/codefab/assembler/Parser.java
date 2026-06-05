@@ -67,6 +67,8 @@ public class Parser {
         consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
         consume(TokenType.LEFT_BRACE, "Expect '{' before function body.");
         List<Stmt> body = ((Stmt.Block) block()).statements;
+        if (body.stream().noneMatch(s -> s instanceof Stmt.Return))
+            throw new ParseError(name.line(), "Function '" + name.origin() + "' must contain a return statement.");
         return new Stmt.Function(name, params, body);
     }
 
