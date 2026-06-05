@@ -4,6 +4,7 @@ package org.example.codefab.checker;
 import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
 import org.example.codefab.token.Token;
+import org.example.codefab.token.TokenType;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -76,14 +77,17 @@ public class Checker implements Stmt.Visitor<Void> {
     }
 
     /**
-     * Returns true if name is reachable as DEFINED from the current scope chain.
+     * Returns the scope distance to the nearest DEFINED binding of name,
+     * or -1 if name is not visible. Distance 0 = current scope, 1 = one hop up, etc.
      * DECLARING state is excluded — the variable exists but is not yet usable.
      */
-    private boolean isVisible(String name) {
+    private int findScopeDistance(String name) {
+        int distance = 0;
         for (Scope scope : scopes) {
-            if (scope.has(name) && scope.state(name) == Scope.State.DEFINED) return true;
+            if (scope.has(name) && scope.state(name) == Scope.State.DEFINED) return distance;
+            distance++;
         }
-        return false;
+        return -1;
     }
 
     // ── Statement visitors (DFS) ──────────────────────────────────────────────
@@ -136,38 +140,139 @@ public class Checker implements Stmt.Visitor<Void> {
     }
 
     // ── Expression scanner ────────────────────────────────────────────────────
-    // Walks expression subtrees only to enforce variable-scope rules.
-    // No runtime evaluation is performed here.
+    // Enforces variable-scope rules, records depth on Variable/Assign nodes,
+    // and pre-computes constant expressions via constant folding.
+    // Returns the compile-time value if the expression is fully constant, null otherwise.
 
-    private void scanExpr(Expr expr) {
-        switch (expr) {
+    private Object scanExpr(Expr expr) {
+        return switch (expr) {
+
+            case Expr.Literal l -> l.value;
+
+            case Expr.Grouping g -> {
+                Object inner = scanExpr(g.expression);
+                if (inner != null) g.foldedValue = inner;
+                yield inner;
+            }
+
+            case Expr.Unary u -> {
+                Object operand = scanExpr(u.operand);
+                Object folded  = foldUnary(u.op, operand);
+                if (folded != null) u.foldedValue = folded;
+                yield folded;
+            }
+
+            case Expr.Binary b -> {
+                Object left   = scanExpr(b.left);
+                Object right  = scanExpr(b.right);
+                Object folded = foldBinary(b.op, left, right);
+                if (folded != null) b.foldedValue = folded;
+                yield folded;
+            }
+
+            case Expr.Comparison c -> {
+                Object left   = scanExpr(c.left);
+                Object right  = scanExpr(c.right);
+                Object folded = foldComparison(c.op, left, right);
+                if (folded != null) c.foldedValue = folded;
+                yield folded;
+            }
+
+            case Expr.Logical lo -> {
+                Object left  = scanExpr(lo.left);
+                Object right = scanExpr(lo.right); // 스코프 검사를 위해 항상 순회
+                if (left != null) {
+                    if (lo.op.type() == TokenType.OR  &&  isTruthy(left)) { lo.foldedValue = left;  yield left; }
+                    if (lo.op.type() == TokenType.AND && !isTruthy(left)) { lo.foldedValue = left;  yield left; }
+                }
+                if (left != null && right != null) { lo.foldedValue = right; yield right; }
+                yield null;
+            }
+
             case Expr.Variable v -> {
-                String name = v.name.origin();
-                Scope current = scopes.peek();
+                String name    = v.name.origin();
+                Scope  current = scopes.peek();
                 // Rule 2: self-reference — variable read during its own initializer
                 if (current.has(name) && current.state(name) == Scope.State.DECLARING) {
                     result.addError(v.name.line(), "Can't read local variable in initializer.");
-                    return; // self-ref already reported; skip undeclared check
+                    yield null;
                 }
-                // Rule 3: undeclared variable read (includes forward ref, block scope violation)
-                if (!isVisible(name)) {
+                // Rule 3 + static binding
+                int depth = findScopeDistance(name);
+                if (depth < 0) {
                     result.addError(v.name.line(), "Undefined variable '" + name + "'.");
+                } else {
+                    v.depth = depth;
                 }
+                yield null;
             }
+
             case Expr.Assign a -> {
-                // Rule 4: assignment to undeclared variable
-                if (!isVisible(a.name.origin())) {
+                // Rule 4 + static binding
+                int depth = findScopeDistance(a.name.origin());
+                if (depth < 0) {
                     result.addError(a.name.line(), "Undefined variable '" + a.name.origin() + "'.");
+                } else {
+                    a.depth = depth;
                 }
                 scanExpr(a.value);
+                yield null;
             }
-            case Expr.Binary b     -> { scanExpr(b.left); scanExpr(b.right); }
-            case Expr.Logical l    -> { scanExpr(l.left); scanExpr(l.right); }
-            case Expr.Comparison c -> { scanExpr(c.left); scanExpr(c.right); }
-            case Expr.Unary u      -> scanExpr(u.operand);
-            case Expr.Grouping g   -> scanExpr(g.expression);
-            case Expr.Literal ignored -> {}
-        }
+            
+             case Expr.Call c -> {
+                  scanExpr(c.callee);
+                  for (Expr arg : c.arguments) scanExpr(arg);
+                  yield null;
+              }
+          };
+      }
+
+    // ── Constant fold helpers ─────────────────────────────────────────────────
+
+    private Object foldUnary(Token op, Object operand) {
+        if (operand == null) return null;
+        return switch (op.type()) {
+            case MINUS -> operand instanceof Double d  ? -d  : null;
+            case BANG  -> operand instanceof Boolean b ? !b  : null;
+            default    -> null;
+        };
+    }
+
+    private Object foldBinary(Token op, Object left, Object right) {
+        if (left == null || right == null) return null;
+        return switch (op.type()) {
+            case PLUS  -> {
+                if (left instanceof Double l && right instanceof Double r) yield l + r;
+                if (left instanceof String l && right instanceof String r) yield l + r;
+                yield null;
+            }
+            case MINUS -> left instanceof Double l && right instanceof Double r ? l - r : null;
+            case STAR  -> left instanceof Double l && right instanceof Double r ? l * r : null;
+            case SLASH -> {
+                if (!(left instanceof Double l && right instanceof Double r)) yield null;
+                if (r == 0) yield null; // 0 나누기: 런타임 에러로 위임
+                yield l / r;
+            }
+            default -> null;
+        };
+    }
+
+    private Object foldComparison(Token op, Object left, Object right) {
+        if (!(left instanceof Double l && right instanceof Double r)) return null;
+        return switch (op.type()) {
+            case GREATER       -> l > r;
+            case GREATER_EQUAL -> l >= r;
+            case LESS          -> l < r;
+            case LESS_EQUAL    -> l <= r;
+            default            -> null;
+        };
+    }
+
+    private boolean isTruthy(Object value) {
+        if (value == null)              return false;
+        if (value instanceof Boolean b) return b;
+        return true;
+
     }
 
     // ── Internal dispatch ─────────────────────────────────────────────────────

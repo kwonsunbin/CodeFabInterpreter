@@ -253,6 +253,78 @@ class ExecutorTest {
         assertEquals("false", exec(List.of(new Stmt.Print(expr))));
     }
 
+    @Test
+    void equalEqual_sameNumbers_returnsTrue() {
+        // print 5 == 5; → "true"
+        var expr = new Expr.Comparison(num(5.0), tok(TokenType.EQUAL_EQUAL, "=="), num(5.0));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_differentNumbers_returnsFalse() {
+        // print 1 == 2; → "false"
+        var expr = new Expr.Comparison(num(1.0), tok(TokenType.EQUAL_EQUAL, "=="), num(2.0));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void bangEqual_differentNumbers_returnsTrue() {
+        // print 1 != 2; → "true"
+        var expr = new Expr.Comparison(num(1.0), tok(TokenType.BANG_EQUAL, "!="), num(2.0));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void bangEqual_sameNumbers_returnsFalse() {
+        // print 3 != 3; → "false"
+        var expr = new Expr.Comparison(num(3.0), tok(TokenType.BANG_EQUAL, "!="), num(3.0));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_sameStrings_returnsTrue() {
+        // print "hello" == "hello"; → "true"
+        var expr = new Expr.Comparison(str("hello"), tok(TokenType.EQUAL_EQUAL, "=="), str("hello"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_differentStrings_returnsFalse() {
+        // print "a" == "b"; → "false"
+        var expr = new Expr.Comparison(str("a"), tok(TokenType.EQUAL_EQUAL, "=="), str("b"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_sameBooleans_returnsTrue() {
+        // print true == true; → "true"
+        var expr = new Expr.Comparison(bool(true), tok(TokenType.EQUAL_EQUAL, "=="), bool(true));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_nullAndNull_returnsTrue() {
+        // print nil == nil; → "true"
+        var expr = new Expr.Comparison(
+                new Expr.Literal(null), tok(TokenType.EQUAL_EQUAL, "=="), new Expr.Literal(null));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_nullAndNumber_returnsFalse() {
+        // print nil == 1; → "false"
+        var expr = new Expr.Comparison(
+                new Expr.Literal(null), tok(TokenType.EQUAL_EQUAL, "=="), num(1.0));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_crossType_returnsFalse() {
+        // print 1 == "1"; → "false"
+        var expr = new Expr.Comparison(num(1.0), tok(TokenType.EQUAL_EQUAL, "=="), str("1"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // 5. Variables & assignment
     // ════════════════════════════════════════════════════════════════════════
@@ -593,5 +665,100 @@ class ExecutorTest {
         var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("null 타입과 number 타입"),
                 "실제 메시지: " + ex.getMessage());
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 12. 문자열 대소 비교 (사전순, lexicographic)
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    void stringGreaterThan_true() {
+        // "b" > "a" → true
+        var expr = new Expr.Comparison(str("b"), tok(TokenType.GREATER, ">"), str("a"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterThan_false() {
+        // "a" > "b" → false
+        var expr = new Expr.Comparison(str("a"), tok(TokenType.GREATER, ">"), str("b"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterThan_equalStrings_false() {
+        // "abc" > "abc" → false
+        var expr = new Expr.Comparison(str("abc"), tok(TokenType.GREATER, ">"), str("abc"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterEqual_equal_true() {
+        // "abc" >= "abc" → true
+        var expr = new Expr.Comparison(str("abc"), tok(TokenType.GREATER_EQUAL, ">="), str("abc"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterEqual_greater_true() {
+        // "b" >= "a" → true
+        var expr = new Expr.Comparison(str("b"), tok(TokenType.GREATER_EQUAL, ">="), str("a"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringGreaterEqual_less_false() {
+        // "a" >= "b" → false
+        var expr = new Expr.Comparison(str("a"), tok(TokenType.GREATER_EQUAL, ">="), str("b"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessThan_true() {
+        // "apple" < "banana" → true
+        var expr = new Expr.Comparison(str("apple"), tok(TokenType.LESS, "<"), str("banana"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessThan_false() {
+        // "z" < "a" → false
+        var expr = new Expr.Comparison(str("z"), tok(TokenType.LESS, "<"), str("a"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessEqual_equal_true() {
+        // "hi" <= "hi" → true
+        var expr = new Expr.Comparison(str("hi"), tok(TokenType.LESS_EQUAL, "<="), str("hi"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessEqual_less_true() {
+        // "a" <= "b" → true
+        var expr = new Expr.Comparison(str("a"), tok(TokenType.LESS_EQUAL, "<="), str("b"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringLessEqual_greater_false() {
+        // "z" <= "a" → false
+        var expr = new Expr.Comparison(str("z"), tok(TokenType.LESS_EQUAL, "<="), str("a"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void stringVsNumber_greaterThan_comparesByStringify() {
+        // "hello" > 5 → stringify(5)="5", "hello".compareTo("5") > 0 → true
+        var expr = new Expr.Comparison(str("hello"), tok(TokenType.GREATER, ">"), num(5.0));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void numberVsString_lessThan_comparesByStringify() {
+        // 3 < "abc" → stringify(3)="3", "3".compareTo("abc") < 0 → true
+        var expr = new Expr.Comparison(num(3.0), tok(TokenType.LESS, "<"), str("abc"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
     }
 }
