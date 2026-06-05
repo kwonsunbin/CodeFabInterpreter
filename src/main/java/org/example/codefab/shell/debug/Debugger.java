@@ -292,6 +292,7 @@ public class Debugger implements ExecutionListener {
         if (expr instanceof Expr.Comparison e)  return e.op.line();
         if (expr instanceof Expr.Unary e)       return e.op.line();
         if (expr instanceof Expr.Grouping e)    return exprLine(e.expression);
-        return -1; // Literal — 토큰 없음
+        if (expr instanceof Expr.Literal e)     return e.line;
+        return -1;
     }
 }
