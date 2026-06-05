@@ -259,6 +259,78 @@ class ExecutorTest {
         assertEquals("false", exec(List.of(new Stmt.Print(expr))));
     }
 
+    @Test
+    void equalEqual_sameNumbers_returnsTrue() {
+        // print 5 == 5; → "true"
+        var expr = new Expr.Comparison(num(5.0), tok(TokenType.EQUAL_EQUAL, "=="), num(5.0));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_differentNumbers_returnsFalse() {
+        // print 1 == 2; → "false"
+        var expr = new Expr.Comparison(num(1.0), tok(TokenType.EQUAL_EQUAL, "=="), num(2.0));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void bangEqual_differentNumbers_returnsTrue() {
+        // print 1 != 2; → "true"
+        var expr = new Expr.Comparison(num(1.0), tok(TokenType.BANG_EQUAL, "!="), num(2.0));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void bangEqual_sameNumbers_returnsFalse() {
+        // print 3 != 3; → "false"
+        var expr = new Expr.Comparison(num(3.0), tok(TokenType.BANG_EQUAL, "!="), num(3.0));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_sameStrings_returnsTrue() {
+        // print "hello" == "hello"; → "true"
+        var expr = new Expr.Comparison(str("hello"), tok(TokenType.EQUAL_EQUAL, "=="), str("hello"));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_differentStrings_returnsFalse() {
+        // print "a" == "b"; → "false"
+        var expr = new Expr.Comparison(str("a"), tok(TokenType.EQUAL_EQUAL, "=="), str("b"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_sameBooleans_returnsTrue() {
+        // print true == true; → "true"
+        var expr = new Expr.Comparison(bool(true), tok(TokenType.EQUAL_EQUAL, "=="), bool(true));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_nullAndNull_returnsTrue() {
+        // print nil == nil; → "true"
+        var expr = new Expr.Comparison(
+                new Expr.Literal(null), tok(TokenType.EQUAL_EQUAL, "=="), new Expr.Literal(null));
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_nullAndNumber_returnsFalse() {
+        // print nil == 1; → "false"
+        var expr = new Expr.Comparison(
+                new Expr.Literal(null), tok(TokenType.EQUAL_EQUAL, "=="), num(1.0));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
+    @Test
+    void equalEqual_crossType_returnsFalse() {
+        // print 1 == "1"; → "false"
+        var expr = new Expr.Comparison(num(1.0), tok(TokenType.EQUAL_EQUAL, "=="), str("1"));
+        assertEquals("false", exec(List.of(new Stmt.Print(expr))));
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // 5. Variables & assignment
     // ════════════════════════════════════════════════════════════════════════

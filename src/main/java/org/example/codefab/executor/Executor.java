@@ -146,14 +146,21 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
     public Object visitComparison(Expr.Comparison expr) {
         Object left  = evaluate(expr.left);
         Object right = evaluate(expr.right);
-        checkNumberOperands(expr.op, left, right);
         return switch (expr.op.type()) {
-            case GREATER       -> (double) left >  (double) right;
-            case GREATER_EQUAL -> (double) left >= (double) right;
-            case LESS          -> (double) left <  (double) right;
-            case LESS_EQUAL    -> (double) left <= (double) right;
+            case GREATER       -> { checkNumberOperands(expr.op, left, right); yield (double) left >  (double) right; }
+            case GREATER_EQUAL -> { checkNumberOperands(expr.op, left, right); yield (double) left >= (double) right; }
+            case LESS          -> { checkNumberOperands(expr.op, left, right); yield (double) left <  (double) right; }
+            case LESS_EQUAL    -> { checkNumberOperands(expr.op, left, right); yield (double) left <= (double) right; }
+            case EQUAL_EQUAL   -> isEqual(left, right);
+            case BANG_EQUAL    -> !isEqual(left, right);
             default -> throw new RuntimeError(expr.op, "Unknown comparison operator.");
         };
+    }
+
+    private boolean isEqual(Object a, Object b) {
+        if (a == null && b == null) return true;
+        if (a == null) return false;
+        return a.equals(b);
     }
 
     @Override
