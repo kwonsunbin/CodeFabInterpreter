@@ -185,4 +185,38 @@ class LexerTest {
         assertEquals(TokenType.IDENTIFIER, tokens.get(0).type());
         assertEquals("x1",                tokens.get(0).origin());
     }
+
+    // ── M1·M2 신규 토큰 ────────────────────────────────────────────────────────
+
+    @Test void newDelimiterTokens() {
+        var tokens = lex(",[]");
+        assertEquals(TokenType.COMMA,         tokens.get(0).type());
+        assertEquals(TokenType.LEFT_BRACKET,  tokens.get(1).type());
+        assertEquals(TokenType.RIGHT_BRACKET, tokens.get(2).type());
+        assertEquals(TokenType.EOF,           tokens.get(3).type());
+    }
+
+    @Test void funcAndReturnKeywords() {
+        var tokens = lex("Func return");
+        assertEquals(TokenType.FUNC,   tokens.get(0).type());
+        assertEquals(TokenType.RETURN, tokens.get(1).type());
+    }
+
+    @Test void funcCallSequence() {
+        var tokens = lex("add(1, 2)");
+        assertEquals(TokenType.IDENTIFIER,  tokens.get(0).type()); // add
+        assertEquals(TokenType.LEFT_PAREN,  tokens.get(1).type());
+        assertEquals(TokenType.NUMBER,      tokens.get(2).type());
+        assertEquals(TokenType.COMMA,       tokens.get(3).type());
+        assertEquals(TokenType.NUMBER,      tokens.get(4).type());
+        assertEquals(TokenType.RIGHT_PAREN, tokens.get(5).type());
+    }
+
+    @Test void arrayIndexSequence() {
+        var tokens = lex("arr[0]");
+        assertEquals(TokenType.IDENTIFIER,    tokens.get(0).type()); // arr
+        assertEquals(TokenType.LEFT_BRACKET,  tokens.get(1).type());
+        assertEquals(TokenType.NUMBER,        tokens.get(2).type());
+        assertEquals(TokenType.RIGHT_BRACKET, tokens.get(3).type());
+    }
 }

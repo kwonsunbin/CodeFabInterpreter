@@ -2,7 +2,7 @@ package org.example.codefab.token;
 
 public enum TokenType {
     // Delimiters / grouping
-    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, SEMICOLON,
+    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET, SEMICOLON, COMMA,
 
     // Arithmetic operators
     PLUS, MINUS, STAR, SLASH,
@@ -19,7 +19,7 @@ public enum TokenType {
     AND, OR,
 
     // Keywords
-    VAR, IF, ELSE, FOR, PRINT, TRUE, FALSE,
+    VAR, IF, ELSE, FOR, PRINT, TRUE, FALSE, FUNC, RETURN,
 
     // Identifiers and literals
     IDENTIFIER, NUMBER, STRING,
