@@ -66,10 +66,10 @@ public class Lexer {
                     addToken(TokenType.SLASH);
                 }
             }
-            case '>' -> addToken(match('=') ? TokenType.GREATER_EQUAL : TokenType.GREATER);
-            case '<' -> addToken(match('=') ? TokenType.LESS_EQUAL   : TokenType.LESS);
-            case '=' -> addToken(match('=') ? TokenType.EQUAL_EQUAL  : TokenType.EQUAL);
-            case '!' -> addToken(match('=') ? TokenType.BANG_EQUAL   : TokenType.BANG);
+            case '>' -> addMatchToken('=', TokenType.GREATER_EQUAL, TokenType.GREATER);
+            case '<' -> addMatchToken('=', TokenType.LESS_EQUAL,    TokenType.LESS);
+            case '=' -> addMatchToken('=', TokenType.EQUAL_EQUAL,   TokenType.EQUAL);
+            case '!' -> addMatchToken('=', TokenType.BANG_EQUAL,    TokenType.BANG);
             case '"' -> string();
             case ' ', '\r', '\t' -> { /* ignore whitespace */ }
             case '\n' -> line++;
@@ -101,13 +101,20 @@ public class Lexer {
     }
 
     private void number() {
-        while (!isAtEnd() && isDigit(peek())) advance();
-        if (!isAtEnd() && peek() == '.' && isDigit(peekNext())) {
+        consumeDigits();
+        if (hasFractionalPart()) {
             advance(); // consume '.'
-            while (!isAtEnd() && isDigit(peek())) advance();
+            consumeDigits();
         }
-        double value = Double.parseDouble(source.substring(start, current));
-        addToken(TokenType.NUMBER, value);
+        addToken(TokenType.NUMBER, Double.parseDouble(source.substring(start, current)));
+    }
+
+    private void consumeDigits() {
+        while (!isAtEnd() && isDigit(peek())) advance();
+    }
+
+    private boolean hasFractionalPart() {
+        return !isAtEnd() && peek() == '.' && isDigit(peekNext());
     }
 
     private void identifier() {
@@ -138,6 +145,10 @@ public class Lexer {
     private boolean isDigit(char c)   { return c >= '0' && c <= '9'; }
     private boolean isAlpha(char c)   { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'; }
     private boolean isAlphaNumeric(char c) { return isAlpha(c) || isDigit(c); }
+
+    private void addMatchToken(char expected, TokenType ifMatch, TokenType otherwise) {
+        addToken(match(expected) ? ifMatch : otherwise);
+    }
 
     private void addToken(TokenType type) {
         addToken(type, null);
