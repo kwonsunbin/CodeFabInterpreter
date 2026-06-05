@@ -31,107 +31,159 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
      * RuntimeError propagates to the caller (Shell catches it; test harness catches it).
      */
     public void run(List<Stmt> program) {
-        // TODO: log start, execute each statement, log complete
-        throw new UnsupportedOperationException("TODO: implement run");
+        log.executionStart();
+        for (Stmt stmt : program) execute(stmt);
+        log.executionComplete();
     }
 
     // ── Statement visitors ────────────────────────────────────────────────────
 
     @Override
     public Void visitVar(Stmt.Var stmt) {
-        // TODO: evaluate initializer (if present) and define in environment
-        throw new UnsupportedOperationException("TODO: implement visitVar");
+        Object value = stmt.initializer != null ? evaluate(stmt.initializer) : null;
+        environment.define(stmt.name.origin(), value);
+        return null;
     }
 
     @Override
     public Void visitIf(Stmt.If stmt) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitIf");
+        if (isTruthy(evaluate(stmt.condition))) execute(stmt.thenBranch);
+        else if (stmt.elseBranch != null)        execute(stmt.elseBranch);
+        return null;
     }
 
     @Override
     public Void visitFor(Stmt.For stmt) {
-        // TODO: create loop environment, execute init, loop while condition, run increment
-        throw new UnsupportedOperationException("TODO: implement visitFor");
+        Environment loopEnv = new Environment(environment);
+        Environment previous = environment;
+        environment = loopEnv;
+        try {
+            if (stmt.initializer != null) execute(stmt.initializer);
+            while (stmt.condition == null || isTruthy(evaluate(stmt.condition))) {
+                execute(stmt.body);
+                if (stmt.increment != null) evaluate(stmt.increment);
+            }
+        } finally {
+            environment = previous;
+        }
+        return null;
     }
 
     @Override
     public Void visitPrint(Stmt.Print stmt) {
-        // TODO: evaluate expression and println(stringify(value))
-        throw new UnsupportedOperationException("TODO: implement visitPrint");
+        System.out.println(stringify(evaluate(stmt.expression)));
+        return null;
     }
 
     @Override
     public Void visitBlock(Stmt.Block stmt) {
-        // TODO: execute block in a child environment
-        throw new UnsupportedOperationException("TODO: implement visitBlock");
+        executeBlock(stmt.statements, new Environment(environment));
+        return null;
     }
 
     @Override
     public Void visitExpression(Stmt.Expression stmt) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitExpression");
+        evaluate(stmt.expression);
+        return null;
     }
 
     // ── Expression visitors ───────────────────────────────────────────────────
 
     @Override
     public Object visitLiteral(Expr.Literal expr) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitLiteral");
+        return expr.value;
     }
 
     @Override
     public Object visitGrouping(Expr.Grouping expr) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitGrouping");
+        return evaluate(expr.expression);
     }
 
     @Override
     public Object visitVariable(Expr.Variable expr) {
-        // TODO
-        throw new UnsupportedOperationException("TODO: implement visitVariable");
+        return environment.get(expr.name);
     }
 
     @Override
     public Object visitAssign(Expr.Assign expr) {
-        // TODO: evaluate value, assign to environment, return value
-        throw new UnsupportedOperationException("TODO: implement visitAssign");
+        Object value = evaluate(expr.value);
+        environment.assign(expr.name, value);
+        return value;
     }
 
     @Override
     public Object visitUnary(Expr.Unary expr) {
-        // TODO: evaluate operand, check it's a number, negate
-        throw new UnsupportedOperationException("TODO: implement visitUnary");
+        Object operand = evaluate(expr.operand);
+        return switch (expr.op.type()) {
+            case MINUS -> { checkNumberOperand(expr.op, operand); yield -(double) operand; }
+            case BANG  -> !isTruthy(operand);
+            default    -> throw new RuntimeError(expr.op, "Unknown unary operator.");
+        };
     }
 
     @Override
     public Object visitBinary(Expr.Binary expr) {
-        // TODO: evaluate both sides, switch on op type (+, -, *, /)
-        throw new UnsupportedOperationException("TODO: implement visitBinary");
+        Object left  = evaluate(expr.left);
+        Object right = evaluate(expr.right);
+        return switch (expr.op.type()) {
+            case PLUS -> {
+                if (left instanceof Double l && right instanceof Double r) yield l + r;
+                if (left instanceof String  l && right instanceof String  r) yield l + r;
+                throw new RuntimeError(expr.op, "Operands must be two numbers or two strings.");
+            }
+            case MINUS -> { checkNumberOperands(expr.op, left, right); yield (double) left - (double) right; }
+            case STAR  -> { checkNumberOperands(expr.op, left, right); yield (double) left * (double) right; }
+            case SLASH -> {
+                checkNumberOperands(expr.op, left, right);
+                if ((double) right == 0) throw new RuntimeError(expr.op, "Division by zero.");
+                yield (double) left / (double) right;
+            }
+            default    -> throw new RuntimeError(expr.op, "Unknown binary operator.");
+        };
     }
 
     @Override
     public Object visitComparison(Expr.Comparison expr) {
-        // TODO: evaluate both sides, check numbers, switch on > / <
-        throw new UnsupportedOperationException("TODO: implement visitComparison");
+        Object left  = evaluate(expr.left);
+        Object right = evaluate(expr.right);
+        checkNumberOperands(expr.op, left, right);
+        return switch (expr.op.type()) {
+            case GREATER       -> (double) left >  (double) right;
+            case GREATER_EQUAL -> (double) left >= (double) right;
+            case LESS          -> (double) left <  (double) right;
+            case LESS_EQUAL    -> (double) left <= (double) right;
+            default -> throw new RuntimeError(expr.op, "Unknown comparison operator.");
+        };
     }
 
     @Override
     public Object visitLogical(Expr.Logical expr) {
-        // TODO: short-circuit evaluation for and / or
-        throw new UnsupportedOperationException("TODO: implement visitLogical");
+        Object left = evaluate(expr.left);
+        if (expr.op.type() == TokenType.OR) {
+            if (isTruthy(left)) return left;
+        } else {
+            if (!isTruthy(left)) return left;
+        }
+        return evaluate(expr.right);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /** Execute a block in a fresh child environment. */
     public void executeBlock(List<Stmt> statements, Environment blockEnv) {
-        // TODO: swap environment, execute all, restore even on exception
-        throw new UnsupportedOperationException("TODO: implement executeBlock");
+        Environment previous = environment;
+        environment = blockEnv;
+        try {
+            for (Stmt stmt : statements) execute(stmt);
+        } finally {
+            environment = previous;
+        }
     }
 
-    private Object evaluate(Expr expr)  { return expr.accept(this); }
+    private Object evaluate(Expr expr)  {
+        return expr.accept(this);
+    }
+
     private void   execute(Stmt stmt)   { stmt.accept(this); }
 
     /** Truthiness: Boolean → itself; null → false; everything else → true. */
@@ -143,12 +195,23 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     private void checkNumberOperand(Token op, Object operand) {
         if (operand instanceof Double) return;
-        throw new RuntimeError(op, "Operand must be a number.");
+        throw new RuntimeError(op,
+                typeName(operand) + " 타입에 대해 '" + op.origin() + "' 연산은 지원하지 않습니다.");
     }
 
     private void checkNumberOperands(Token op, Object left, Object right) {
         if (left instanceof Double && right instanceof Double) return;
-        throw new RuntimeError(op, "Operands must be numbers.");
+        throw new RuntimeError(op,
+                typeName(left) + " 타입과 " + typeName(right) + " 타입에 대해 '" +
+                op.origin() + "' 연산은 지원하지 않습니다.");
+    }
+
+    private static String typeName(Object value) {
+        if (value == null)            return "null";
+        if (value instanceof Double)  return "number";
+        if (value instanceof Boolean) return "boolean";
+        if (value instanceof String)  return "string";
+        return value.getClass().getSimpleName();
     }
 
     /**
