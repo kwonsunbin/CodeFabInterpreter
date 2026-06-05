@@ -12,6 +12,8 @@ public abstract sealed class Expr
                 Expr.Unary, Expr.Grouping, Expr.Literal,
                 Expr.Variable, Expr.Assign {
 
+    public Object foldedValue = null; // set by CheckerFold; null = 폴딩 안 됨
+
     public interface Visitor<R> {
         R visitBinary(Binary expr);
         R visitLogical(Logical expr);
