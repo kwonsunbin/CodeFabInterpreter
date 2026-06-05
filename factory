@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# CodeFab 공장 제어 쉘 래퍼
+#
+# 사용법:
+#   ./factory                    # REPL (대화형 프롬프트 모드)
+#   ./factory run <file.txt>     # 파일 모드 — 스크립트 실행
+#   ./factory debug <file.txt>   # 디버그 모드 — 구문 단위 점검
+#   --verbose                    # 라이프사이클 로그 출력 (어느 모드든 사용 가능)
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+JAVA_HOME="${JAVA_HOME:-$HOME/.jdks/temurin-21.0.11}"
+export JAVA_HOME
+
+exec "$SCRIPT_DIR/gradlew" -q --console=plain run --args="$*"
