@@ -739,20 +739,16 @@ class ExecutorTest {
     }
 
     @Test
-    void stringVsNumber_greaterThan_throwsRuntimeError() {
-        // "hello" > 5 → RuntimeError (타입 불일치)
+    void stringVsNumber_greaterThan_comparesByStringify() {
+        // "hello" > 5 → stringify(5)="5", "hello".compareTo("5") > 0 → true
         var expr = new Expr.Comparison(str("hello"), tok(TokenType.GREATER, ">"), num(5.0));
-        var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
-        assertTrue(ex.getMessage().contains("string 타입과 number 타입"),
-                "실제 메시지: " + ex.getMessage());
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
-    void numberVsString_lessThan_throwsRuntimeError() {
-        // 3 < "abc" → RuntimeError (타입 불일치)
+    void numberVsString_lessThan_comparesByStringify() {
+        // 3 < "abc" → stringify(3)="3", "3".compareTo("abc") < 0 → true
         var expr = new Expr.Comparison(num(3.0), tok(TokenType.LESS, "<"), str("abc"));
-        var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
-        assertTrue(ex.getMessage().contains("number 타입과 string 타입"),
-                "실제 메시지: " + ex.getMessage());
+        assertEquals("true", exec(List.of(new Stmt.Print(expr))));
     }
 }

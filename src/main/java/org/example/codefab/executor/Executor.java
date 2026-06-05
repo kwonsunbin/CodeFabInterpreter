@@ -147,37 +147,20 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
         Object left  = evaluate(expr.left);
         Object right = evaluate(expr.right);
         return switch (expr.op.type()) {
-            case GREATER -> {
-                if (left instanceof Double l && right instanceof Double r) yield l > r;
-                checkStringOperands(expr.op, left, right);
-                yield ((String) left).compareTo((String) right) > 0;
-            }
-            case GREATER_EQUAL -> {
-                if (left instanceof Double l && right instanceof Double r) yield l >= r;
-                checkStringOperands(expr.op, left, right);
-                yield ((String) left).compareTo((String) right) >= 0;
-            }
-            case LESS -> {
-                if (left instanceof Double l && right instanceof Double r) yield l < r;
-                checkStringOperands(expr.op, left, right);
-                yield ((String) left).compareTo((String) right) < 0;
-            }
-            case LESS_EQUAL -> {
-                if (left instanceof Double l && right instanceof Double r) yield l <= r;
-                checkStringOperands(expr.op, left, right);
-                yield ((String) left).compareTo((String) right) <= 0;
-            }
+            case GREATER       -> compareOrdered(left, right) >  0;
+            case GREATER_EQUAL -> compareOrdered(left, right) >= 0;
+            case LESS          -> compareOrdered(left, right) <  0;
+            case LESS_EQUAL    -> compareOrdered(left, right) <= 0;
             case EQUAL_EQUAL   -> isEqual(left, right);
             case BANG_EQUAL    -> !isEqual(left, right);
             default -> throw new RuntimeError(expr.op, "Unknown comparison operator.");
         };
     }
 
-    private void checkStringOperands(Token op, Object left, Object right) {
-        if (left instanceof String && right instanceof String) return;
-        throw new RuntimeError(op,
-                typeName(left) + " 타입과 " + typeName(right) + " 타입에 대해 '" +
-                op.origin() + "' 연산은 지원하지 않습니다.");
+    // 숫자끼리는 수치 비교, 그 외(문자열, 혼합)는 stringify 후 사전순 비교
+    private int compareOrdered(Object left, Object right) {
+        if (left instanceof Double l && right instanceof Double r) return Double.compare(l, r);
+        return stringify(left).compareTo(stringify(right));
     }
 
     private boolean isEqual(Object a, Object b) {
