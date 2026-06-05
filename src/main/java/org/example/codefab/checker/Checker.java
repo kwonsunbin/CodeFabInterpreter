@@ -13,12 +13,14 @@ import java.util.List;
  * Checker Unit: static semantic analysis via recursive DFS (Visitor pattern).
  * Collects ALL diagnostics in one pass — does not throw.
  * <p>
- * Rules implemented:
+ * Semantic rules implemented (detectable without execution):
  * 1. Duplicate variable declaration in the same block scope.
  * 2. Self-reference in initializer (var a = a;).
+ * 3. Use of undeclared variable (read context).
+ * 4. Assignment to undeclared variable (write context).
  * <p>
- * To add new rules: implement the relevant visitXxx methods and call
- * result.addError() / result.addWarning() as needed.
+ * Runtime errors (type mismatch, division by zero) are intentionally left
+ * to Executor — they require actual values and cannot be detected statically.
  */
 public class Checker implements Stmt.Visitor<Void> {
 
@@ -71,6 +73,17 @@ public class Checker implements Stmt.Visitor<Void> {
      */
     private void define(Token name) {
         scopes.peek().define(name.origin());
+    }
+
+    /**
+     * Returns true if name is reachable as DEFINED from the current scope chain.
+     * DECLARING state is excluded — the variable exists but is not yet usable.
+     */
+    private boolean isVisible(String name) {
+        for (Scope scope : scopes) {
+            if (scope.has(name) && scope.state(name) == Scope.State.DEFINED) return true;
+        }
+        return false;
     }
 
     // ── Statement visitors (DFS) ──────────────────────────────────────────────
@@ -129,18 +142,30 @@ public class Checker implements Stmt.Visitor<Void> {
     private void scanExpr(Expr expr) {
         switch (expr) {
             case Expr.Variable v -> {
+                String name = v.name.origin();
                 Scope current = scopes.peek();
-                if (current.has(v.name.origin())
-                        && current.state(v.name.origin()) == Scope.State.DECLARING) {
+                // Rule 2: self-reference — variable read during its own initializer
+                if (current.has(name) && current.state(name) == Scope.State.DECLARING) {
                     result.addError(v.name.line(), "Can't read local variable in initializer.");
+                    return; // self-ref already reported; skip undeclared check
                 }
+                // Rule 3: undeclared variable read (includes forward ref, block scope violation)
+                if (!isVisible(name)) {
+                    result.addError(v.name.line(), "Undefined variable '" + name + "'.");
+                }
+            }
+            case Expr.Assign a -> {
+                // Rule 4: assignment to undeclared variable
+                if (!isVisible(a.name.origin())) {
+                    result.addError(a.name.line(), "Undefined variable '" + a.name.origin() + "'.");
+                }
+                scanExpr(a.value);
             }
             case Expr.Binary b     -> { scanExpr(b.left); scanExpr(b.right); }
             case Expr.Logical l    -> { scanExpr(l.left); scanExpr(l.right); }
             case Expr.Comparison c -> { scanExpr(c.left); scanExpr(c.right); }
             case Expr.Unary u      -> scanExpr(u.operand);
             case Expr.Grouping g   -> scanExpr(g.expression);
-            case Expr.Assign a     -> scanExpr(a.value);
             case Expr.Literal ignored -> {}
         }
     }
