@@ -10,7 +10,8 @@ import java.util.List;
  */
 public abstract sealed class Stmt
         permits Stmt.Var, Stmt.If, Stmt.For,
-                Stmt.Print, Stmt.Block, Stmt.Expression {
+                Stmt.Print, Stmt.Block, Stmt.Expression,
+                Stmt.ArrayDecl {
 
     public interface Visitor<R> {
         R visitVar(Var stmt);
@@ -19,6 +20,8 @@ public abstract sealed class Stmt
         R visitPrint(Print stmt);
         R visitBlock(Block stmt);
         R visitExpression(Expression stmt);
+        // TODO: Checker/Executor에서 visitArrayDecl 구현 필요
+        default R visitArrayDecl(ArrayDecl stmt) { throw new UnsupportedOperationException("visitArrayDecl not implemented"); }
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -94,5 +97,18 @@ public abstract sealed class Stmt
         public Expression(Expr expression) { this.expression = expression; }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitExpression(this); }
+    }
+
+    // ── Array declaration: var name[size]; ───────────────────────────────────
+    public static final class ArrayDecl extends Stmt {
+        public final Token name;
+        public final Expr size;
+
+        public ArrayDecl(Token name, Expr size) {
+            this.name = name;
+            this.size = size;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitArrayDecl(this); }
     }
 }

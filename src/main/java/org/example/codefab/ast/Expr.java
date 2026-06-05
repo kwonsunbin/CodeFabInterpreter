@@ -10,7 +10,8 @@ import org.example.codefab.token.Token;
 public abstract sealed class Expr
         permits Expr.Binary, Expr.Logical, Expr.Comparison,
                 Expr.Unary, Expr.Grouping, Expr.Literal,
-                Expr.Variable, Expr.Assign {
+                Expr.Variable, Expr.Assign,
+                Expr.ArrayGet, Expr.ArraySet {
 
     public interface Visitor<R> {
         R visitBinary(Binary expr);
@@ -21,6 +22,9 @@ public abstract sealed class Expr
         R visitLiteral(Literal expr);
         R visitVariable(Variable expr);
         R visitAssign(Assign expr);
+        // TODO: Checker/Executor에서 visitArrayGet, visitArraySet 구현 필요
+        default R visitArrayGet(ArrayGet expr) { throw new UnsupportedOperationException("visitArrayGet not implemented"); }
+        default R visitArraySet(ArraySet expr) { throw new UnsupportedOperationException("visitArraySet not implemented"); }
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -113,5 +117,33 @@ public abstract sealed class Expr
         }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitAssign(this); }
+    }
+
+    // ── Array index read: name[index] ─────────────────────────────────────────
+    public static final class ArrayGet extends Expr {
+        public final Token name;
+        public final Expr index;
+
+        public ArrayGet(Token name, Expr index) {
+            this.name = name;
+            this.index = index;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitArrayGet(this); }
+    }
+
+    // ── Array index write: name[index] = value ────────────────────────────────
+    public static final class ArraySet extends Expr {
+        public final Token name;
+        public final Expr index;
+        public final Expr value;
+
+        public ArraySet(Token name, Expr index, Expr value) {
+            this.name = name;
+            this.index = index;
+            this.value = value;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitArraySet(this); }
     }
 }

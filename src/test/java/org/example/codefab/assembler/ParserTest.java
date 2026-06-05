@@ -298,4 +298,94 @@ class ParserTest {
         var ifStmt = getStatement("if (5 != 5) print \"bbq\";", 0, Stmt.If.class);
         assertInstanceOf(Expr.Comparison.class, ifStmt.condition);
     }
+
+    // ── Array declaration ────────────────────────────────────────────────────
+
+    @Test
+    void arrayDeclWithLiteralSize() {
+        var decl = getStatement("var arr[5];", 0, Stmt.ArrayDecl.class);
+        assertEquals("arr", decl.name.origin());
+        assertEquals(5.0, ((Expr.Literal) decl.size).value);
+    }
+
+    @Test
+    void arrayDeclWithExpressionSize() {
+        var decl = getStatement("var arr[2 + 3];", 0, Stmt.ArrayDecl.class);
+        assertInstanceOf(Expr.Binary.class, decl.size);
+    }
+
+    @Test
+    void arrayDeclDoesNotProduceVarNode() {
+        var stmt = parse("var arr[10];").get(0);
+        assertInstanceOf(Stmt.ArrayDecl.class, stmt);
+    }
+
+    @Test
+    void varDeclStillWorksAfterArraySupport() {
+        var var1 = getStatement("var x = 1;", 0, Stmt.Var.class);
+        assertEquals("x", var1.name.origin());
+    }
+
+    @Test
+    void missingBracketSizeThrows() {
+        assertThrows(ParseError.class, () -> parse("var arr[];"));
+    }
+
+    @Test
+    void missingClosingBracketInDeclThrows() {
+        assertThrows(ParseError.class, () -> parse("var arr[5;"));
+    }
+
+    // ── Array index read (ArrayGet) ──────────────────────────────────────────
+
+    @Test
+    void arrayGetProducesArrayGetNode() {
+        var exprStmt = getStatement("arr[0];", 0, Stmt.Expression.class);
+        assertInstanceOf(Expr.ArrayGet.class, exprStmt.expression);
+    }
+
+    @Test
+    void arrayGetNameAndIndex() {
+        var get = (Expr.ArrayGet) getStatement("arr[2];", 0, Stmt.Expression.class).expression;
+        assertEquals("arr", get.name.origin());
+        assertEquals(2.0, ((Expr.Literal) get.index).value);
+    }
+
+    @Test
+    void arrayGetWithExpressionIndex() {
+        var get = (Expr.ArrayGet) getStatement("arr[i + 1];", 0, Stmt.Expression.class).expression;
+        assertInstanceOf(Expr.Binary.class, get.index);
+    }
+
+    @Test
+    void missingClosingBracketInGetThrows() {
+        assertThrows(ParseError.class, () -> parse("arr[0;"));
+    }
+
+    // ── Array index write (ArraySet) ─────────────────────────────────────────
+
+    @Test
+    void arraySetProducesArraySetNode() {
+        var exprStmt = getStatement("arr[0] = 99;", 0, Stmt.Expression.class);
+        assertInstanceOf(Expr.ArraySet.class, exprStmt.expression);
+    }
+
+    @Test
+    void arraySetNameIndexAndValue() {
+        var set = (Expr.ArraySet) getStatement("arr[1] = 42;", 0, Stmt.Expression.class).expression;
+        assertEquals("arr", set.name.origin());
+        assertEquals(1.0, ((Expr.Literal) set.index).value);
+        assertEquals(42.0, ((Expr.Literal) set.value).value);
+    }
+
+    @Test
+    void arraySetValueCanBeExpression() {
+        var set = (Expr.ArraySet) getStatement("arr[0] = 1 + 2;", 0, Stmt.Expression.class).expression;
+        assertInstanceOf(Expr.Binary.class, set.value);
+    }
+
+    @Test
+    void arraySetInvalidTargetThrows() {
+        assertThrows(ParseError.class, () -> parse("1 + 2 = 5;"));
+    }
 }

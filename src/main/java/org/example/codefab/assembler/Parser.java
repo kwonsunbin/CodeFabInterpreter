@@ -45,10 +45,16 @@ public class Parser {
     }
 
     /**
-     * var IDENTIFIER ( = expression )? ;
+     * var IDENTIFIER ( "[" expression "]" | "=" expression )? ;
      */
     private Stmt varDeclaration() {
         Token name = consume(TokenType.IDENTIFIER, "Expect variable name.");
+        if (match(TokenType.LEFT_BRACKET)) {
+            Expr size = expression();
+            consume(TokenType.RIGHT_BRACKET, "Expect ']' after array size.");
+            consume(TokenType.SEMICOLON, "Expect ';' after array declaration.");
+            return new Stmt.ArrayDecl(name, size);
+        }
         Expr initializer = match(TokenType.EQUAL) ? expression() : null;
         consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
         return new Stmt.Var(name, initializer);
@@ -124,13 +130,14 @@ public class Parser {
     }
 
     /**
-     * assignment → IDENTIFIER = assignment | or  (right-associative)
+     * assignment → IDENTIFIER = assignment | IDENTIFIER "[" expr "]" = assignment | or
      */
     private Expr assignment() {
         Expr expr = or();
         if (match(TokenType.EQUAL)) {
             Expr value = assignment();
-            if (expr instanceof Expr.Variable v) return new Expr.Assign(v.name, value);
+            if (expr instanceof Expr.Variable v)   return new Expr.Assign(v.name, value);
+            if (expr instanceof Expr.ArrayGet ag)  return new Expr.ArraySet(ag.name, ag.index, value);
             throw new ParseError(peek().line(), "Invalid assignment target.");
         }
         return expr;
@@ -165,12 +172,20 @@ public class Parser {
     }
 
     /**
-     * primary = NUMBER | STRING | true | false | IDENTIFIER | ( expression )
+     * primary = NUMBER | STRING | true | false | IDENTIFIER ( "[" expression "]" )? | ( expression )
      */
     private Expr primary() {
         if (match(TokenType.NUMBER, TokenType.STRING, TokenType.TRUE, TokenType.FALSE))
             return new Expr.Literal(previous().value());
-        if (match(TokenType.IDENTIFIER)) return new Expr.Variable(previous());
+        if (match(TokenType.IDENTIFIER)) {
+            Token name = previous();
+            if (match(TokenType.LEFT_BRACKET)) {
+                Expr index = expression();
+                consume(TokenType.RIGHT_BRACKET, "Expect ']' after index.");
+                return new Expr.ArrayGet(name, index);
+            }
+            return new Expr.Variable(name);
+        }
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");

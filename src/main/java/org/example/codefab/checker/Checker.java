@@ -167,6 +167,10 @@ public class Checker implements Stmt.Visitor<Void> {
             case Expr.Unary u      -> scanExpr(u.operand);
             case Expr.Grouping g   -> scanExpr(g.expression);
             case Expr.Literal ignored -> {}
+            // TODO: ArrayGet — 배열 변수 선언 여부 및 인덱스 범위 검사 구현 필요
+            case Expr.ArrayGet ignored -> {}
+            // TODO: ArraySet — 배열 변수 선언 여부, 인덱스 범위, 값 타입 검사 구현 필요
+            case Expr.ArraySet ignored -> {}
         }
     }
 
