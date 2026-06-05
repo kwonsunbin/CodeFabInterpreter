@@ -110,6 +110,11 @@ public class Debugger implements ExecutionListener {
 
     @Override
     public void onStatement(Stmt stmt) {
+        // 블록·for 문은 구조적 컨테이너일 뿐 실행 줄이 아니므로 정지점에서 제외.
+        // 실제 정지는 그 안의 실행 구문(초기화식·본문 구문)에서 일어난다.
+        // (제외하지 않으면 컨테이너와 첫 구문이 같은 줄에서 이중 정지)
+        if (stmt instanceof Stmt.Block || stmt instanceof Stmt.For) return;
+
         int line = lineOf(stmt);
 
         boolean shouldPause = switch (mode) {
