@@ -38,12 +38,12 @@ public class Parser {
     // ── Statements ────────────────────────────────────────────────────────────
 
     private Stmt statement() {
-        if (match(TokenType.FUNC))   return funcDeclaration();
+        if (match(TokenType.FUNC)) return funcDeclaration();
         if (match(TokenType.RETURN)) return returnStatement();
-        if (match(TokenType.VAR))    return varDeclaration();
-        if (match(TokenType.IF))     return ifStatement();
-        if (match(TokenType.FOR))    return forStatement();
-        if (match(TokenType.PRINT))  return printStatement();
+        if (match(TokenType.VAR)) return varDeclaration();
+        if (match(TokenType.IF)) return ifStatement();
+        if (match(TokenType.FOR)) return forStatement();
+        if (match(TokenType.PRINT)) return printStatement();
         if (match(TokenType.LEFT_BRACE)) return block();
         return expressionStatement();
     }
@@ -176,6 +176,7 @@ public class Parser {
         if (match(TokenType.EQUAL)) {
             Expr value = assignment();
             if (expr instanceof Expr.Variable v) return new Expr.Assign(v.name, value);
+            if (expr instanceof Expr.ArrayGet ag) return new Expr.ArraySet(ag.name, ag.index, value);
             throw new ParseError(peek().line(), "Invalid assignment target.");
         }
         return expr;
@@ -231,6 +232,7 @@ public class Parser {
         Token paren = consume(TokenType.RIGHT_PAREN, "Expect ')' after arguments.");
         return new Expr.Call(callee, paren, arguments);
     }
+
     /**
      * primary = NUMBER | STRING | true | false | IDENTIFIER ( "[" expression "]" )? | ( expression )
      */
@@ -244,7 +246,7 @@ public class Parser {
                 consume(TokenType.RIGHT_BRACKET, "Expect ']' after index.");
                 return new Expr.ArrayGet(name, index);
             }
-            return Expr.builder().name(name).build();;
+            return Expr.builder().name(name).build();
         }
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
