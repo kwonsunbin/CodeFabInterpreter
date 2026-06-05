@@ -4,8 +4,6 @@ import org.example.codefab.assembler.Assembler;
 import org.example.codefab.ast.Stmt;
 import org.example.codefab.checker.CheckResult;
 import org.example.codefab.checker.Checker;
-import org.example.codefab.checker.CheckerDepth;
-import org.example.codefab.checker.CheckerFold;
 import org.example.codefab.checker.Diagnostic;
 import org.example.codefab.error.CodeFabError;
 import org.example.codefab.executor.Executor;
@@ -15,29 +13,24 @@ import java.io.PrintStream;
 import java.util.List;
 
 /**
- * 5-stage pipeline: Assembler → Checker → CheckerDepth → CheckerFold → Executor.
- * CheckerDepth·CheckerFold는 Checker가 통과한 경우에만 실행된다.
+ * 3-stage pipeline: Assembler → Checker → Executor.
+ * Checker가 정적 바인딩(depth)과 상수 폴딩(foldedValue)을 단일 패스로 수행한다.
  */
 public class Pipeline {
 
-    private final Assembler    assembler;
-    private final Checker      checker;
-    private final CheckerDepth checkerDepth;
-    private final CheckerFold  checkerFold;
-    private final Executor     executor;
-    private final Logger       log;
-    private final PrintStream  out;
+    private final Assembler   assembler;
+    private final Checker     checker;
+    private final Executor    executor;
+    private final Logger      log;
+    private final PrintStream out;
 
     public Pipeline(Assembler assembler, Checker checker,
-                    CheckerDepth checkerDepth, CheckerFold checkerFold,
                     Executor executor, Logger log, PrintStream out) {
-        this.assembler    = assembler;
-        this.checker      = checker;
-        this.checkerDepth = checkerDepth;
-        this.checkerFold  = checkerFold;
-        this.executor     = executor;
-        this.log          = log;
-        this.out          = out;
+        this.assembler = assembler;
+        this.checker   = checker;
+        this.executor  = executor;
+        this.log       = log;
+        this.out       = out;
     }
 
     public void run(String source) {
@@ -52,9 +45,6 @@ public class Pipeline {
                 return;
             }
 
-            checkerDepth.check(program);
-            checkerFold.check(program);
-
             executor.run(program);
         } catch (CodeFabError e) {
             log.error(e);
@@ -68,9 +58,9 @@ public class Pipeline {
 
     // ── Accessors (file / debug modes) ────────────────────────────────────────
 
-    public Assembler  assembler() { return assembler; }
-    public Checker    checker()   { return checker; }
-    public Executor   executor()  { return executor; }
-    public Logger     log()       { return log; }
-    public PrintStream out()      { return out; }
+    public Assembler   assembler() { return assembler; }
+    public Checker     checker()   { return checker; }
+    public Executor    executor()  { return executor; }
+    public Logger      log()       { return log; }
+    public PrintStream out()       { return out; }
 }

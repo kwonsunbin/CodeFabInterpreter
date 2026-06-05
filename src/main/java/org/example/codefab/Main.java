@@ -2,8 +2,6 @@ package org.example.codefab;
 
 import org.example.codefab.assembler.Assembler;
 import org.example.codefab.checker.Checker;
-import org.example.codefab.checker.CheckerDepth;
-import org.example.codefab.checker.CheckerFold;
 import org.example.codefab.executor.Executor;
 import org.example.codefab.log.Logger;
 import org.example.codefab.shell.FileRunner;
@@ -29,13 +27,11 @@ public class Main {
         List<String> argList = Arrays.asList(args);
         boolean verbose = argList.contains("--verbose");
 
-        Logger       log          = new Logger(verbose);
-        Assembler    assembler    = new Assembler();
-        Checker      checker      = new Checker();
-        CheckerDepth checkerDepth = new CheckerDepth();
-        CheckerFold  checkerFold  = new CheckerFold();
-        Executor     executor     = new Executor(log);
-        Pipeline     pipeline     = new Pipeline(assembler, checker, checkerDepth, checkerFold, executor, log, System.out);
+        Logger   log      = new Logger(verbose);
+        Assembler assembler = new Assembler();
+        Checker  checker  = new Checker();
+        Executor executor = new Executor(log);
+        Pipeline pipeline = new Pipeline(assembler, checker, executor, log, System.out);
 
         List<String> effectiveArgs = argList.stream()
                 .filter(a -> !a.equals("--verbose"))
