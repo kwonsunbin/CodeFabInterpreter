@@ -13,6 +13,9 @@ public abstract sealed class Expr
                 Expr.Variable, Expr.Assign,
                 Expr.Call, Expr.ArrayLiteral, Expr.ArrayIndex {
 
+    /** Set by CheckerFold; null = 폴딩 안 됨 */
+    public Object foldedValue = null;
+
     public interface Visitor<R> {
         R visitBinary(Binary expr);
         R visitLogical(Logical expr);
@@ -101,6 +104,8 @@ public abstract sealed class Expr
     // ── Variable read ─────────────────────────────────────────────────────────
     public static final class Variable extends Expr {
         public final Token name;
+        /** Set by CheckerDepth; 0 = current scope, N = N hops up, -1 = unresolved */
+        public int depth = -1;
 
         public Variable(Token name) { this.name = name; }
 
@@ -111,6 +116,8 @@ public abstract sealed class Expr
     public static final class Assign extends Expr {
         public final Token name;
         public final Expr value;
+        /** Set by CheckerDepth; 0 = current scope, N = N hops up, -1 = unresolved */
+        public int depth = -1;
 
         public Assign(Token name, Expr value) {
             this.name = name; this.value = value;
