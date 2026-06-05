@@ -267,6 +267,115 @@ class ParserTest {
         assertNotNull(inner.elseBranch); // inner if has the else
     }
 
+    // ── Func declaration ─────────────────────────────────────────────────────
+
+    @Test
+    void funcDeclarationNoParams() {
+        var func = getStatement("Func greet() { print 1; }", 0, Stmt.Function.class);
+        assertEquals("greet", func.name.origin());
+        assertEquals(0, func.params.size());
+        assertEquals(1, func.body.size());
+    }
+
+    @Test
+    void funcDeclarationOneParam() {
+        var func = getStatement("Func double(x) { return x; }", 0, Stmt.Function.class);
+        assertEquals(1, func.params.size());
+        assertEquals("x", func.params.get(0).origin());
+    }
+
+    @Test
+    void funcDeclarationMultipleParams() {
+        var func = getStatement("Func add(a, b, c) { return a; }", 0, Stmt.Function.class);
+        assertEquals(3, func.params.size());
+        assertEquals("a", func.params.get(0).origin());
+        assertEquals("b", func.params.get(1).origin());
+        assertEquals("c", func.params.get(2).origin());
+    }
+
+    @Test
+    void funcBodyCanContainMultipleStatements() {
+        var func = getStatement("Func f(x) { var y = x; return y; }", 0, Stmt.Function.class);
+        assertEquals(2, func.body.size());
+        assertInstanceOf(Stmt.Var.class, func.body.get(0));
+        assertInstanceOf(Stmt.Return.class, func.body.get(1));
+    }
+
+    // ── return statement ──────────────────────────────────────────────────────
+
+    @Test
+    void returnWithValue() {
+        var func = getStatement("Func f() { return 42; }", 0, Stmt.Function.class);
+        var ret = (Stmt.Return) func.body.get(0);
+        assertNotNull(ret.value);
+        assertEquals(42.0, ((Expr.Literal) ret.value).value);
+    }
+
+    @Test
+    void returnWithoutValue() {
+        var func = getStatement("Func f() { return; }", 0, Stmt.Function.class);
+        var ret = (Stmt.Return) func.body.get(0);
+        assertNull(ret.value);
+    }
+
+    @Test
+    void returnWithExpression() {
+        var func = getStatement("Func add(a, b) { return a + b; }", 0, Stmt.Function.class);
+        var ret = (Stmt.Return) func.body.get(0);
+        assertInstanceOf(Expr.Binary.class, ret.value);
+    }
+
+    // ── function call expression ──────────────────────────────────────────────
+
+    @Test
+    void callExprNoArgs() {
+        var call = (Expr.Call) getStatement("foo();", 0, Stmt.Expression.class).expression;
+        assertInstanceOf(Expr.Variable.class, call.callee);
+        assertEquals(0, call.arguments.size());
+    }
+
+    @Test
+    void callExprOneArg() {
+        var call = (Expr.Call) getStatement("foo(1);", 0, Stmt.Expression.class).expression;
+        assertEquals(1, call.arguments.size());
+        assertEquals(1.0, ((Expr.Literal) call.arguments.get(0)).value);
+    }
+
+    @Test
+    void callExprMultipleArgs() {
+        var call = (Expr.Call) getStatement("foo(1, 2, 3);", 0, Stmt.Expression.class).expression;
+        assertEquals(3, call.arguments.size());
+    }
+
+    @Test
+    void callExprArgCanBeExpression() {
+        var call = (Expr.Call) getStatement("foo(1 + 2);", 0, Stmt.Expression.class).expression;
+        assertEquals(1, call.arguments.size());
+        assertInstanceOf(Expr.Binary.class, call.arguments.get(0));
+    }
+
+    // ── Func parse errors ─────────────────────────────────────────────────────
+
+    @Test
+    void missingFuncNameThrows() {
+        assertThrows(ParseError.class, () -> parse("Func () { }"));
+    }
+
+    @Test
+    void missingParenAfterFuncNameThrows() {
+        assertThrows(ParseError.class, () -> parse("Func foo { }"));
+    }
+
+    @Test
+    void missingClosingParenAfterParamsThrows() {
+        assertThrows(ParseError.class, () -> parse("Func foo(x { }"));
+    }
+
+    @Test
+    void missingBraceBeforeFuncBodyThrows() {
+        assertThrows(ParseError.class, () -> parse("Func foo() print 1;"));
+    }
+
     // ── Parse error messages ──────────────────────────────────────────────────
 
     @Test

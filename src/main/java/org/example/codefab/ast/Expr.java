@@ -1,6 +1,7 @@
 package org.example.codefab.ast;
 
 import org.example.codefab.token.Token;
+import java.util.List;
 
 /**
  * Base class for all expression nodes.
@@ -10,7 +11,7 @@ import org.example.codefab.token.Token;
 public abstract sealed class Expr
         permits Expr.Binary, Expr.Logical, Expr.Comparison,
                 Expr.Unary, Expr.Grouping, Expr.Literal,
-                Expr.Variable, Expr.Assign {
+                Expr.Variable, Expr.Assign, Expr.Call {
 
     public interface Visitor<R> {
         R visitBinary(Binary expr);
@@ -21,6 +22,7 @@ public abstract sealed class Expr
         R visitLiteral(Literal expr);
         R visitVariable(Variable expr);
         R visitAssign(Assign expr);
+        R visitCall(Call expr);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -113,5 +115,20 @@ public abstract sealed class Expr
         }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitAssign(this); }
+    }
+
+    // ── Function call: callee(arg1, arg2, ...) ────────────────────────────────
+    public static final class Call extends Expr {
+        public final Expr callee;
+        public final Token paren; // closing ')' — used for error reporting
+        public final List<Expr> arguments;
+
+        public Call(Expr callee, Token paren, List<Expr> arguments) {
+            this.callee = callee;
+            this.paren = paren;
+            this.arguments = arguments;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitCall(this); }
     }
 }

@@ -36,12 +36,42 @@ public class Parser {
     // ── Statements ────────────────────────────────────────────────────────────
 
     private Stmt statement() {
-        if (match(TokenType.VAR)) return varDeclaration();
-        if (match(TokenType.IF)) return ifStatement();
-        if (match(TokenType.FOR)) return forStatement();
-        if (match(TokenType.PRINT)) return printStatement();
+        if (match(TokenType.FUNC))   return funcDeclaration();
+        if (match(TokenType.RETURN)) return returnStatement();
+        if (match(TokenType.VAR))    return varDeclaration();
+        if (match(TokenType.IF))     return ifStatement();
+        if (match(TokenType.FOR))    return forStatement();
+        if (match(TokenType.PRINT))  return printStatement();
         if (match(TokenType.LEFT_BRACE)) return block();
         return expressionStatement();
+    }
+
+    /**
+     * func IDENTIFIER ( IDENTIFIER (, IDENTIFIER)* )? { block }
+     */
+    private Stmt funcDeclaration() {
+        Token name = consume(TokenType.IDENTIFIER, "Expect function name.");
+        consume(TokenType.LEFT_PAREN, "Expect '(' after function name.");
+        List<Token> params = new ArrayList<>();
+        if (!check(TokenType.RIGHT_PAREN)) {
+            do {
+                params.add(consume(TokenType.IDENTIFIER, "Expect parameter name."));
+            } while (match(TokenType.COMMA));
+        }
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.");
+        consume(TokenType.LEFT_BRACE, "Expect '{' before function body.");
+        List<Stmt> body = ((Stmt.Block) block()).statements;
+        return new Stmt.Function(name, params, body);
+    }
+
+    /**
+     * return expression? ;
+     */
+    private Stmt returnStatement() {
+        Token keyword = previous();
+        Expr value = check(TokenType.SEMICOLON) ? null : expression();
+        consume(TokenType.SEMICOLON, "Expect ';' after return value.");
+        return new Stmt.Return(keyword, value);
     }
 
     /**
@@ -160,7 +190,29 @@ public class Parser {
 
     private Expr unary() {
         if (match(TokenType.MINUS, TokenType.BANG)) return new Expr.Unary(previous(), unary());
-        return primary();
+        return call();
+    }
+
+    /**
+     * call → primary ( "(" args ")" )*
+     */
+    private Expr call() {
+        Expr expr = primary();
+        while (match(TokenType.LEFT_PAREN)) {
+            expr = finishCall(expr);
+        }
+        return expr;
+    }
+
+    private Expr finishCall(Expr callee) {
+        List<Expr> arguments = new ArrayList<>();
+        if (!check(TokenType.RIGHT_PAREN)) {
+            do {
+                arguments.add(expression());
+            } while (match(TokenType.COMMA));
+        }
+        Token paren = consume(TokenType.RIGHT_PAREN, "Expect ')' after arguments.");
+        return new Expr.Call(callee, paren, arguments);
     }
 
     /**
