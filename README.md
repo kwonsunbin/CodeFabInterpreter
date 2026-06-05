@@ -7,6 +7,42 @@ CodeFab 언어의 트리 탐색(tree-walking) 인터프리터입니다.
 
 ## 실행 방법
 
+### factory 래퍼 (권장)
+
+`factory` 스크립트가 실행 환경의 OS를 감지해 알맞은 경로로 알아서 분기합니다:
+
+| OS | 동작 |
+|---|---|
+| **Linux** | `gradlew` 실행, `JAVA_HOME` 미설정 시 `~/.jdks/temurin-21.0.11` 기본값 사용 |
+| **macOS** | `gradlew` 실행, `JAVA_HOME` 미설정 시 `/usr/libexec/java_home -v 21`로 JDK 자동 탐색 |
+| **Windows (Git Bash / MSYS / Cygwin)** | `gradlew.bat`으로 위임 |
+| **Windows (cmd / PowerShell)** | `factory.bat` 사용 (아래 참고) |
+
+```bash
+# 대화형 REPL 실행
+./factory
+
+# 파일 모드 — 스크립트 실행
+./factory run examples/hello.txt
+
+# 디버그 모드 — 구문 단위 점검
+./factory debug examples/hello.txt
+
+# 상세 실행 로그(verbose) — 어느 모드든 사용 가능
+./factory --verbose
+./factory run examples/hello.txt --verbose
+```
+
+Windows 네이티브 cmd / PowerShell에서는 배치 래퍼를 사용합니다:
+
+```bat
+factory.bat
+factory.bat run examples\hello.txt
+factory.bat debug examples\hello.txt
+```
+
+### gradlew 직접 실행
+
 > **선행 조건:** `java` 명령이 PATH에 없는 경우 `JAVA_HOME`을 설정해야 합니다.
 
 ```bash
