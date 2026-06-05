@@ -171,6 +171,7 @@ public class Checker implements Stmt.Visitor<Void> {
             case Expr.ArrayGet ignored -> {}
             // TODO: ArraySet — 배열 변수 선언 여부, 인덱스 범위, 값 타입 검사 구현 필요
             case Expr.ArraySet ignored -> {}
+            case Expr.Call  ignored -> {}
         }
     }
 

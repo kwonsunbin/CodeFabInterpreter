@@ -11,7 +11,7 @@ import java.util.List;
 public abstract sealed class Stmt
         permits Stmt.Var, Stmt.If, Stmt.For,
                 Stmt.Print, Stmt.Block, Stmt.Expression,
-                Stmt.ArrayDecl {
+                Stmt.Function, Stmt.Return, Stmt.ArrayDecl {
 
     public interface Visitor<R> {
         R visitVar(Var stmt);
@@ -22,6 +22,9 @@ public abstract sealed class Stmt
         R visitExpression(Expression stmt);
         // TODO: Checker/Executor에서 visitArrayDecl 구현 필요
         default R visitArrayDecl(ArrayDecl stmt) { throw new UnsupportedOperationException("visitArrayDecl not implemented"); }
+        // TODO: Checker/Executor에서 visitFunction, visitReturn 구현 필요
+        default R visitFunction(Function stmt) { throw new UnsupportedOperationException("visitFunction not implemented"); }
+        default R visitReturn(Return stmt)     { throw new UnsupportedOperationException("visitReturn not implemented"); }
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -97,6 +100,34 @@ public abstract sealed class Stmt
         public Expression(Expr expression) { this.expression = expression; }
 
         @Override public <R> R accept(Visitor<R> v) { return v.visitExpression(this); }
+    }
+
+    // ── Function declaration: func name(p1, p2) { body } ─────────────────────
+    public static final class Function extends Stmt {
+        public final Token name;
+        public final List<Token> params;
+        public final List<Stmt> body;
+
+        public Function(Token name, List<Token> params, List<Stmt> body) {
+            this.name = name;
+            this.params = params;
+            this.body = body;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitFunction(this); }
+    }
+
+    // ── Return statement: return expr?; ──────────────────────────────────────
+    public static final class Return extends Stmt {
+        public final Token keyword;
+        public final Expr value; // nullable
+
+        public Return(Token keyword, Expr value) {
+            this.keyword = keyword;
+            this.value = value;
+        }
+
+        @Override public <R> R accept(Visitor<R> v) { return v.visitReturn(this); }
     }
 
     // ── Array declaration: var name[size]; ───────────────────────────────────
