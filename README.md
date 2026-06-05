@@ -7,6 +7,52 @@ CodeFab 언어의 트리 탐색(tree-walking) 인터프리터입니다.
 
 ## 실행 방법
 
+### factory 래퍼 (권장)
+
+`factory` 스크립트가 실행 환경의 OS를 감지해 알맞은 경로로 알아서 분기합니다:
+
+| OS | 동작 |
+|---|---|
+| **Linux** | `gradlew` 실행, `JAVA_HOME` 미설정 시 `~/.jdks/temurin-21.0.11` 기본값 사용 |
+| **macOS** | `gradlew` 실행, `JAVA_HOME` 미설정 시 `/usr/libexec/java_home -v 21`로 JDK 자동 탐색 |
+| **Windows (Git Bash / MSYS / Cygwin)** | `gradlew.bat`으로 위임 |
+| **Windows (cmd / PowerShell)** | `factory.bat` 사용 (아래 참고) |
+
+> **JDK 21이 없어도 됩니다.** foojay 툴체인 리졸버가 설정되어 있어, 로컬에 JDK 21이 없으면
+> Gradle이 자동으로 다운로드합니다 (Gradle 구동용 JDK 17+만 있으면 됨).
+
+REPL / 파일 / 디버그 3개 모드 모두 **Linux와 Windows(cmd)에서 실제 실행 검증**되었습니다.
+한글 출력도 양쪽 모두 정상입니다 (JVM·Gradle 데몬·콘솔 인코딩을 UTF-8로 고정).
+
+```bash
+# 대화형 REPL 실행
+./factory
+
+# 파일 모드 — 스크립트 실행
+./factory run examples/hello.txt
+
+# 디버그 모드 — 구문 단위 점검
+./factory debug examples/hello.txt
+
+# 상세 실행 로그(verbose) — 어느 모드든 사용 가능
+./factory --verbose
+./factory run examples/hello.txt --verbose
+```
+
+Windows 네이티브 cmd / PowerShell에서는 배치 래퍼를 사용합니다:
+
+```bat
+factory.bat
+factory.bat run examples\hello.txt
+factory.bat debug examples\hello.txt
+```
+
+> `factory.bat`은 한글 깨짐 방지를 위해 콘솔 코드페이지를 UTF-8(`chcp 65001`)로 전환하고
+> `GRADLE_OPTS`에 UTF-8 인코딩을 설정합니다. 배치 파일은 `.gitattributes`로 CRLF가 강제됩니다
+> (LF로 체크아웃되면 cmd가 스크립트를 오파싱함).
+
+### gradlew 직접 실행
+
 > **선행 조건:** `java` 명령이 PATH에 없는 경우 `JAVA_HOME`을 설정해야 합니다.
 
 ```bash

@@ -123,6 +123,38 @@ class EndToEndTest {
         assertEquals("false", run("print 3 > 5;").stdout());
     }
 
+    @Test void equalEqual_sameNumbers_true() {
+        assertEquals("true", run("print 5 == 5;").stdout());
+    }
+
+    @Test void equalEqual_differentNumbers_false() {
+        assertEquals("false", run("print 1 == 2;").stdout());
+    }
+
+    @Test void bangEqual_differentNumbers_true() {
+        assertEquals("true", run("print 1 != 2;").stdout());
+    }
+
+    @Test void bangEqual_sameNumbers_false() {
+        assertEquals("false", run("print 3 != 3;").stdout());
+    }
+
+    @Test void equalEqual_inIfCondition_prints() {
+        assertEquals("bbq", run("if (5 == 5) print \"bbq\";").stdout());
+    }
+
+    @Test void bangEqual_inIfCondition_skips() {
+        assertEquals("", run("if (5 != 5) print \"bbq\";").stdout());
+    }
+
+    @Test void equalEqual_strings_true() {
+        assertEquals("true", run("print \"hello\" == \"hello\";").stdout());
+    }
+
+    @Test void equalEqual_crossType_false() {
+        assertEquals("false", run("print 1 == \"1\";").stdout());
+    }
+
     // ── String concatenation ──────────────────────────────────────────────────
 
     @Test void stringConcat() {
