@@ -584,4 +584,312 @@ class ExecutorTest {
         assertTrue(ex.getMessage().contains("null 타입과 number 타입"),
                 "실제 메시지: " + ex.getMessage());
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 12. 함수 선언 및 호출
+    //
+    // Checker 미구현 상태이므로 Assembler·Pipeline 을 거치지 않고
+    // 손 AST 를 Executor 에 직접 주입한다 (Checker 를 우회하는 Test Double 역할).
+    // ════════════════════════════════════════════════════════════════════════
+
+    /** 'return' 키워드 토큰 */
+    private Token returnTok() { return tok(TokenType.RETURN, "return"); }
+
+    /** 인자 리스트 닫는 ')' 토큰 — Call 노드 오류 위치용 */
+    private Token rparenTok() { return tok(TokenType.RIGHT_PAREN, ")"); }
+
+    @Test
+    void funcCall_withReturn_yieldsValue() {
+        // Func greet() { return "hello"; }  print greet(); → "hello"
+        var nameTok = varTok("greet");
+        var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(), str("hello"))));
+        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
+        assertEquals("hello", exec(List.of(funcDecl, new Stmt.Print(call))));
+    }
+
+    @Test
+    void funcCall_withParams_computesResult() {
+        // Func add(a, b) { return a + b; }  print add(3, 4); → "7"
+        var aTok = varTok("a");
+        var bTok = varTok("b");
+        var nameTok = varTok("add");
+        var sumExpr = new Expr.Binary(
+                new Expr.Variable(aTok), tok(TokenType.PLUS, "+"), new Expr.Variable(bTok));
+        var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(), sumExpr)));
+        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(aTok, bTok), body);
+        var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of(num(3.0), num(4.0)));
+        assertEquals("7", exec(List.of(funcDecl, new Stmt.Print(call))));
+    }
+
+    @Test
+    void funcCall_returnStopsExecution() {
+        // Func f() { return 1; print "unreachable"; }  f(); → 출력 없음
+        var nameTok = varTok("f");
+        var body = new Stmt.Block(List.of(
+                new Stmt.Return(returnTok(), num(1.0)),
+                new Stmt.Print(str("unreachable"))
+        ));
+        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
+        assertEquals("", exec(List.of(funcDecl, new Stmt.Expression(call))));
+    }
+
+    @Test
+    void funcCall_noReturn_yieldsNil() {
+        // Func f() { var x = 1; }  print f(); → "nil"
+        var nameTok = varTok("f");
+        var body = new Stmt.Block(List.of(new Stmt.Var(varTok("x"), num(1.0))));
+        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
+        assertEquals("nil", exec(List.of(funcDecl, new Stmt.Print(call))));
+    }
+
+    @Test
+    void funcCall_bareReturn_yieldsNil() {
+        // Func f() { return; }  print f(); → "nil"
+        var nameTok = varTok("f");
+        var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(), null)));
+        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
+        assertEquals("nil", exec(List.of(funcDecl, new Stmt.Print(call))));
+    }
+
+    @Test
+    void funcCall_closure_seesLaterMutation() {
+        // var outer = 10;
+        // Func getOuter() { return outer; }
+        // outer = 99;
+        // print getOuter(); → "99"  (클로저는 값 복사가 아닌 환경 참조)
+        var outerTok = varTok("outer");
+        var nameTok  = varTok("getOuter");
+        var declOuter = new Stmt.Var(outerTok, num(10.0));
+        var body = new Stmt.Block(List.of(
+                new Stmt.Return(returnTok(), new Expr.Variable(outerTok))));
+        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var mutate = new Stmt.Expression(new Expr.Assign(outerTok, num(99.0)));
+        var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of());
+        assertEquals("99", exec(List.of(declOuter, funcDecl, mutate, new Stmt.Print(call))));
+    }
+
+    @Test
+    void funcCall_recursive_factorial() {
+        // Func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); }
+        // print fact(5); → "120"
+        var nTok    = varTok("n");
+        var factTok = varTok("fact");
+
+        var baseCond   = new Expr.Comparison(
+                new Expr.Variable(nTok), tok(TokenType.LESS_EQUAL, "<="), num(1.0));
+        var baseReturn = new Stmt.Return(returnTok(), num(1.0));
+        var ifStmt     = new Stmt.If(baseCond, new Stmt.Block(List.of(baseReturn)), null);
+
+        var nMinus1    = new Expr.Binary(
+                new Expr.Variable(nTok), tok(TokenType.MINUS, "-"), num(1.0));
+        var recurCall  = new Expr.Call(new Expr.Variable(factTok), rparenTok(), List.of(nMinus1));
+        var product    = new Expr.Binary(
+                new Expr.Variable(nTok), tok(TokenType.STAR, "*"), recurCall);
+        var recurReturn = new Stmt.Return(returnTok(), product);
+
+        var body     = new Stmt.Block(List.of(ifStmt, recurReturn));
+        var funcDecl = new Stmt.FuncDecl(factTok, List.of(nTok), body);
+
+        var call = new Expr.Call(new Expr.Variable(factTok), rparenTok(), List.of(num(5.0)));
+        assertEquals("120", exec(List.of(funcDecl, new Stmt.Print(call))));
+    }
+
+    @Test
+    void funcCall_undefinedFunction_throwsRuntimeError() {
+        // undefined() → RuntimeError (변수 자체가 없음)
+        var call = new Expr.Call(new Expr.Variable(varTok("undefined")), rparenTok(), List.of());
+        assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(call))));
+    }
+
+    @Test
+    void funcCall_nonCallable_throwsRuntimeError() {
+        // var x = 5;  x(); → "Can only call functions."
+        var xTok = varTok("x");
+        var decl = new Stmt.Var(xTok, num(5.0));
+        var call = new Expr.Call(new Expr.Variable(xTok), rparenTok(), List.of());
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(decl, new Stmt.Expression(call))));
+        assertTrue(ex.getMessage().contains("Can only call functions"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test
+    void funcCall_tooFewArgs_throwsRuntimeError() {
+        // Func add(a, b) { return a + b; }  add(1); → arity 불일치
+        var aTok    = varTok("a");
+        var bTok    = varTok("b");
+        var nameTok = varTok("add");
+        var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(),
+                new Expr.Binary(new Expr.Variable(aTok), tok(TokenType.PLUS, "+"),
+                        new Expr.Variable(bTok)))));
+        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(aTok, bTok), body);
+        var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of(num(1.0)));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(funcDecl, new Stmt.Expression(call))));
+        assertTrue(ex.getMessage().contains("Expected 2 arguments but got 1"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test
+    void funcCall_tooManyArgs_throwsRuntimeError() {
+        // Func greet() { return "hi"; }  greet("extra"); → arity 불일치
+        var nameTok = varTok("greet");
+        var body = new Stmt.Block(List.of(new Stmt.Return(returnTok(), str("hi"))));
+        var funcDecl = new Stmt.FuncDecl(nameTok, List.of(), body);
+        var call = new Expr.Call(new Expr.Variable(nameTok), rparenTok(), List.of(num(1.0)));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(funcDecl, new Stmt.Expression(call))));
+        assertTrue(ex.getMessage().contains("Expected 0 arguments but got 1"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test
+    void print_funcValue_showsFuncName() {
+        // Func greet() { }  print greet; → "<function greet>"
+        var greetTok = varTok("greet");
+        var funcDecl = new Stmt.FuncDecl(greetTok, List.of(), new Stmt.Block(List.of()));
+        var print = new Stmt.Print(new Expr.Variable(greetTok));
+        assertEquals("<function greet>", exec(List.of(funcDecl, print)));
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 13. 배열 리터럴 및 인덱싱
+    // ════════════════════════════════════════════════════════════════════════
+
+    /** '[' 토큰 — ArrayLiteral·ArrayIndex 오류 위치용 */
+    private Token lbracketTok() { return tok(TokenType.LEFT_BRACKET, "["); }
+
+    @Test
+    void arrayLiteral_empty_prints() {
+        // print []; → "[]"
+        var arr = new Expr.ArrayLiteral(lbracketTok(), List.of());
+        assertEquals("[]", exec(List.of(new Stmt.Print(arr))));
+    }
+
+    @Test
+    void arrayLiteral_numbers_prints() {
+        // print [1, 2, 3]; → "[1, 2, 3]"
+        var arr = new Expr.ArrayLiteral(lbracketTok(), List.of(num(1.0), num(2.0), num(3.0)));
+        assertEquals("[1, 2, 3]", exec(List.of(new Stmt.Print(arr))));
+    }
+
+    @Test
+    void arrayLiteral_mixedTypes_prints() {
+        // print [1, "hello", true]; → "[1, hello, true]"
+        var arr = new Expr.ArrayLiteral(lbracketTok(),
+                List.of(num(1.0), str("hello"), bool(true)));
+        assertEquals("[1, hello, true]", exec(List.of(new Stmt.Print(arr))));
+    }
+
+    @Test
+    void arrayLiteral_nested_prints() {
+        // print [[1, 2], [3]]; → "[[1, 2], [3]]"
+        var inner1 = new Expr.ArrayLiteral(lbracketTok(), List.of(num(1.0), num(2.0)));
+        var inner2 = new Expr.ArrayLiteral(lbracketTok(), List.of(num(3.0)));
+        var outer  = new Expr.ArrayLiteral(lbracketTok(), List.of(inner1, inner2));
+        assertEquals("[[1, 2], [3]]", exec(List.of(new Stmt.Print(outer))));
+    }
+
+    @Test
+    void arrayIndex_firstElement() {
+        // var arr = [10, 20, 30]; print arr[0]; → "10"
+        var arrTok = varTok("arr");
+        var decl   = new Stmt.Var(arrTok,
+                new Expr.ArrayLiteral(lbracketTok(), List.of(num(10.0), num(20.0), num(30.0))));
+        var idx    = new Expr.ArrayIndex(new Expr.Variable(arrTok), lbracketTok(), num(0.0));
+        assertEquals("10", exec(List.of(decl, new Stmt.Print(idx))));
+    }
+
+    @Test
+    void arrayIndex_middleElement() {
+        // var arr = [10, 20, 30]; print arr[1]; → "20"
+        var arrTok = varTok("arr");
+        var decl   = new Stmt.Var(arrTok,
+                new Expr.ArrayLiteral(lbracketTok(), List.of(num(10.0), num(20.0), num(30.0))));
+        var idx    = new Expr.ArrayIndex(new Expr.Variable(arrTok), lbracketTok(), num(1.0));
+        assertEquals("20", exec(List.of(decl, new Stmt.Print(idx))));
+    }
+
+    @Test
+    void arrayIndex_lastElement() {
+        // var arr = [10, 20, 30]; print arr[2]; → "30"
+        var arrTok = varTok("arr");
+        var decl   = new Stmt.Var(arrTok,
+                new Expr.ArrayLiteral(lbracketTok(), List.of(num(10.0), num(20.0), num(30.0))));
+        var idx    = new Expr.ArrayIndex(new Expr.Variable(arrTok), lbracketTok(), num(2.0));
+        assertEquals("30", exec(List.of(decl, new Stmt.Print(idx))));
+    }
+
+    @Test
+    void arrayIndex_outOfBounds_throwsRuntimeError() {
+        // var arr = [10]; arr[5]; → RuntimeError
+        var arrTok = varTok("arr");
+        var decl   = new Stmt.Var(arrTok,
+                new Expr.ArrayLiteral(lbracketTok(), List.of(num(10.0))));
+        var idx    = new Expr.ArrayIndex(new Expr.Variable(arrTok), lbracketTok(), num(5.0));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(decl, new Stmt.Print(idx))));
+        assertTrue(ex.getMessage().contains("out of bounds"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test
+    void arrayIndex_negativeIndex_throwsRuntimeError() {
+        // var arr = [10, 20]; arr[-1]; → RuntimeError
+        var arrTok = varTok("arr");
+        var decl   = new Stmt.Var(arrTok,
+                new Expr.ArrayLiteral(lbracketTok(), List.of(num(10.0), num(20.0))));
+        var idx    = new Expr.ArrayIndex(new Expr.Variable(arrTok), lbracketTok(), num(-1.0));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(decl, new Stmt.Print(idx))));
+        assertTrue(ex.getMessage().contains("out of bounds"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test
+    void arrayIndex_nonArray_throwsRuntimeError() {
+        // 5[0]; → "Only arrays can be indexed."
+        var idx = new Expr.ArrayIndex(num(5.0), lbracketTok(), num(0.0));
+        var ex  = assertThrows(RuntimeError.class,
+                () -> exec(List.of(new Stmt.Print(idx))));
+        assertTrue(ex.getMessage().contains("Only arrays can be indexed"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test
+    void arrayIndex_nonNumericIndex_throwsRuntimeError() {
+        // var arr = [10]; arr["x"]; → "Array index must be an integer."
+        var arrTok = varTok("arr");
+        var decl   = new Stmt.Var(arrTok,
+                new Expr.ArrayLiteral(lbracketTok(), List.of(num(10.0))));
+        var idx    = new Expr.ArrayIndex(new Expr.Variable(arrTok), lbracketTok(), str("x"));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(decl, new Stmt.Print(idx))));
+        assertTrue(ex.getMessage().contains("Array index must be an integer"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test
+    void arrayIndex_floatIndex_throwsRuntimeError() {
+        // var arr = [10, 20]; arr[1.5]; → "Array index must be an integer."
+        var arrTok = varTok("arr");
+        var decl   = new Stmt.Var(arrTok,
+                new Expr.ArrayLiteral(lbracketTok(), List.of(num(10.0), num(20.0))));
+        var idx    = new Expr.ArrayIndex(new Expr.Variable(arrTok), lbracketTok(), num(1.5));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(decl, new Stmt.Print(idx))));
+        assertTrue(ex.getMessage().contains("Array index must be an integer"),
+                "실제 메시지: " + ex.getMessage());
+    }
+
+    @Test
+    void stringify_array_rendersElements() {
+        // Executor.stringify(List.of(1.0, "hi", true)) → "[1, hi, true]"
+        assertEquals("[1, hi, true]",
+                Executor.stringify(java.util.List.of(1.0, "hi", true)));
+    }
 }
