@@ -157,7 +157,8 @@ public abstract sealed class Expr
     // ── Variable read ─────────────────────────────────────────────────────────
     public static final class Variable extends Expr {
         public final Token name;
-        public int depth = -1; // set by CheckerDepth; 0 = current scope, N = N hops up
+        public int depth = -1; // set by Checker; 0 = current scope, N = N hops up
+        public int slot  = -1; // set by Checker; index within the resolved scope (O(1) access)
 
         public Variable(Token name) { this.name = name; }
 
@@ -168,7 +169,8 @@ public abstract sealed class Expr
     public static final class Assign extends Expr {
         public final Token name;
         public final Expr value;
-        public int depth = -1; // set by CheckerDepth; 0 = current scope, N = N hops up
+        public int depth = -1; // set by Checker; 0 = current scope, N = N hops up
+        public int slot  = -1; // set by Checker; index within the resolved scope (O(1) access)
 
         public Assign(Token name, Expr value) {
             this.name = name; this.value = value;

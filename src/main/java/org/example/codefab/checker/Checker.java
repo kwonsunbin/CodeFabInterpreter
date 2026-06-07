@@ -77,17 +77,20 @@ public class Checker implements Stmt.Visitor<Void> {
     }
 
     /**
-     * Returns the scope distance to the nearest DEFINED binding of name,
-     * or -1 if name is not visible. Distance 0 = current scope, 1 = one hop up, etc.
+     * Resolves a name to its static location: {depth, slot}.
+     * depth = scope distance (0 = current, N = N hops up), slot = index within that scope.
+     * Returns {-1, -1} if the name is not visible as DEFINED.
      * DECLARING state is excluded — the variable exists but is not yet usable.
      */
-    private int findScopeDistance(String name) {
-        int distance = 0;
+    private int[] resolve(String name) {
+        int depth = 0;
         for (Scope scope : scopes) {
-            if (scope.has(name) && scope.state(name) == Scope.State.DEFINED) return distance;
-            distance++;
+            if (scope.has(name) && scope.state(name) == Scope.State.DEFINED) {
+                return new int[]{depth, scope.slotOf(name)};
+            }
+            depth++;
         }
-        return -1;
+        return new int[]{-1, -1};
     }
 
     // ── Statement visitors (DFS) ──────────────────────────────────────────────
@@ -197,23 +200,25 @@ public class Checker implements Stmt.Visitor<Void> {
                     result.addError(v.name.line(), "Can't read local variable in initializer.");
                     yield null;
                 }
-                // Rule 3 + static binding
-                int depth = findScopeDistance(name);
-                if (depth < 0) {
+                // Rule 3 + static binding (depth + slot)
+                int[] loc = resolve(name);
+                if (loc[0] < 0) {
                     result.addError(v.name.line(), "Undefined variable '" + name + "'.");
                 } else {
-                    v.depth = depth;
+                    v.depth = loc[0];
+                    v.slot  = loc[1];
                 }
                 yield null;
             }
 
             case Expr.Assign a -> {
-                // Rule 4 + static binding
-                int depth = findScopeDistance(a.name.origin());
-                if (depth < 0) {
+                // Rule 4 + static binding (depth + slot)
+                int[] loc = resolve(a.name.origin());
+                if (loc[0] < 0) {
                     result.addError(a.name.line(), "Undefined variable '" + a.name.origin() + "'.");
                 } else {
-                    a.depth = depth;
+                    a.depth = loc[0];
+                    a.slot  = loc[1];
                 }
                 scanExpr(a.value);
                 yield null;
