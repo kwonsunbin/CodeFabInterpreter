@@ -57,17 +57,9 @@ class ExecutorTest {
         return new Token(TokenType.IDENTIFIER, name, null, 1);
     }
 
-    private Expr.Literal num(double v) {
-        return new Expr.Literal(v);
-    }
-
-    private Expr.Literal str(String s) {
-        return new Expr.Literal(s);
-    }
-
-    private Expr.Literal bool(boolean b) {
-        return new Expr.Literal(b);
-    }
+    private Expr num(double v)    { return Expr.builder().literalValue(v).build(); }
+    private Expr str(String s)    { return Expr.builder().literalValue(s).build(); }
+    private Expr bool(boolean b)  { return Expr.builder().literalValue(b).build(); }
 
     // ════════════════════════════════════════════════════════════════════════
     // 1. Literal & stringify
@@ -103,13 +95,15 @@ class ExecutorTest {
     @Test
     void printLiteralNull() {
         // null → "nil"
-        assertEquals("nil", exec(List.of(new Stmt.Print(new Expr.Literal(null)))));
+        assertEquals("nil", exec(List.of(new Stmt.Print(
+                Expr.builder().literalValue(null).build()))));
     }
 
     @Test
     void printGrouping() {
         // (5) → "5"
-        assertEquals("5", exec(List.of(new Stmt.Print(new Expr.Grouping(num(5.0))))));
+        assertEquals("5", exec(List.of(new Stmt.Print(
+                Expr.builder().expression(num(5.0)).build()))));
     }
 
     // ── stringify 정적 메서드 (이미 구현됨 → 바로 Green, 사양 문서화 용도) ──
@@ -144,42 +138,42 @@ class ExecutorTest {
     @Test
     void printAddition() {
         // print 1 + 2; → "3"
-        var expr = new Expr.Binary(num(1.0), tok(TokenType.PLUS, "+"), num(2.0));
+        var expr = Expr.builder().left(num(1.0)).op(tok(TokenType.PLUS, "+")).right(num(2.0)).build();
         assertEquals("3", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void printSubtraction() {
         // print 10 - 4; → "6"
-        var expr = new Expr.Binary(num(10.0), tok(TokenType.MINUS, "-"), num(4.0));
+        var expr = Expr.builder().left(num(10.0)).op(tok(TokenType.MINUS, "-")).right(num(4.0)).build();
         assertEquals("6", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void printMultiplication() {
         // print 3 * 4; → "12"
-        var expr = new Expr.Binary(num(3.0), tok(TokenType.STAR, "*"), num(4.0));
+        var expr = Expr.builder().left(num(3.0)).op(tok(TokenType.STAR, "*")).right(num(4.0)).build();
         assertEquals("12", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void printDivision() {
         // print 8 / 2; → "4"
-        var expr = new Expr.Binary(num(8.0), tok(TokenType.SLASH, "/"), num(2.0));
+        var expr = Expr.builder().left(num(8.0)).op(tok(TokenType.SLASH, "/")).right(num(2.0)).build();
         assertEquals("4", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void printDivision_fractionalResult() {
         // print 7 / 2; → "3.5"
-        var expr = new Expr.Binary(num(7.0), tok(TokenType.SLASH, "/"), num(2.0));
+        var expr = Expr.builder().left(num(7.0)).op(tok(TokenType.SLASH, "/")).right(num(2.0)).build();
         assertEquals("3.5", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void division_byZero_throwsRuntimeError() {
         // print 10 / 0; → RuntimeError (0으로 나누기)
-        var expr = new Expr.Binary(num(10.0), tok(TokenType.SLASH, "/"), num(0.0));
+        var expr = Expr.builder().left(num(10.0)).op(tok(TokenType.SLASH, "/")).right(num(0.0)).build();
         var ex = assertThrows(RuntimeError.class,
                 () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("Division by zero"),
@@ -189,14 +183,14 @@ class ExecutorTest {
     @Test
     void division_zeroByZero_throwsRuntimeError() {
         // print 0 / 0; → RuntimeError (0으로 나누기)
-        var expr = new Expr.Binary(num(0.0), tok(TokenType.SLASH, "/"), num(0.0));
+        var expr = Expr.builder().left(num(0.0)).op(tok(TokenType.SLASH, "/")).right(num(0.0)).build();
         assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void division_nonNumber_throwsRuntimeError() {
         // print "a" / 2; → RuntimeError (타입 불일치)
-        var expr = new Expr.Binary(str("a"), tok(TokenType.SLASH, "/"), num(2.0));
+        var expr = Expr.builder().left(str("a")).op(tok(TokenType.SLASH, "/")).right(num(2.0)).build();
         var ex = assertThrows(RuntimeError.class,
                 () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("타입과") && ex.getMessage().contains("연산은 지원하지 않습니다"),
@@ -206,14 +200,14 @@ class ExecutorTest {
     @Test
     void printStringConcat() {
         // print "Hello" + " World"; → "Hello World"
-        var expr = new Expr.Binary(str("Hello"), tok(TokenType.PLUS, "+"), str(" World"));
+        var expr = Expr.builder().left(str("Hello")).op(tok(TokenType.PLUS, "+")).right(str(" World")).build();
         assertEquals("Hello World", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void numberPlusStringThrowsRuntimeError() {
         // print 1 + "hi"; → RuntimeError (타입 불일치)
-        var expr = new Expr.Binary(num(1.0), tok(TokenType.PLUS, "+"), str("hi"));
+        var expr = Expr.builder().left(num(1.0)).op(tok(TokenType.PLUS, "+")).right(str("hi")).build();
         var ex = assertThrows(RuntimeError.class,
                 () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("Operands must be two numbers or two strings"),
@@ -227,14 +221,14 @@ class ExecutorTest {
     @Test
     void printUnaryMinus() {
         // print -5; → "-5"
-        var expr = new Expr.Unary(tok(TokenType.MINUS, "-"), num(5.0));
+        var expr = Expr.builder().op(tok(TokenType.MINUS, "-")).operand(num(5.0)).build();
         assertEquals("-5", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void unaryMinusOnStringThrowsRuntimeError() {
         // print -"str"; → RuntimeError
-        var expr = new Expr.Unary(tok(TokenType.MINUS, "-"), str("str"));
+        var expr = Expr.builder().op(tok(TokenType.MINUS, "-")).operand(str("str")).build();
         var ex = assertThrows(RuntimeError.class,
                 () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("타입에 대해") && ex.getMessage().contains("연산은 지원하지 않습니다"),
@@ -248,14 +242,14 @@ class ExecutorTest {
     @Test
     void printLessThanTrue() {
         // print 1 < 2; → "true"
-        var expr = new Expr.Comparison(num(1.0), tok(TokenType.LESS, "<"), num(2.0));
+        var expr = Expr.builder().left(num(1.0)).op(tok(TokenType.LESS, "<")).right(num(2.0)).build();
         assertEquals("true", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void printGreaterThanFalse() {
         // print 3 > 5; → "false"
-        var expr = new Expr.Comparison(num(3.0), tok(TokenType.GREATER, ">"), num(5.0));
+        var expr = Expr.builder().left(num(3.0)).op(tok(TokenType.GREATER, ">")).right(num(5.0)).build();
         assertEquals("false", exec(List.of(new Stmt.Print(expr))));
     }
 
@@ -339,34 +333,35 @@ class ExecutorTest {
     void varDeclAndPrint() {
         // var x = 10; print x; → "10"
         var xTok = varTok("x");
-        var decl = new Stmt.Var(xTok, num(10.0));
-        var print = new Stmt.Print(new Expr.Variable(xTok));
+        var decl  = new Stmt.Var(xTok, num(10.0));
+        var print = new Stmt.Print(Expr.builder().name(xTok).build());
         assertEquals("10", exec(List.of(decl, print)));
     }
 
     @Test
     void varDeclNoInitPrintsNil() {
         // var x; print x; → "nil"
-        var xTok = varTok("x");
-        var decl = new Stmt.Var(xTok, null);
-        var print = new Stmt.Print(new Expr.Variable(xTok));
+        var xTok  = varTok("x");
+        var decl  = new Stmt.Var(xTok, null);
+        var print = new Stmt.Print(Expr.builder().name(xTok).build());
         assertEquals("nil", exec(List.of(decl, print)));
     }
 
     @Test
     void varReassignmentAndPrint() {
         // var a = 0; a = 5; print a; → "5"
-        var aTok = varTok("a");
-        var decl = new Stmt.Var(aTok, num(0.0));
-        var assign = new Stmt.Expression(new Expr.Assign(aTok, num(5.0)));
-        var print = new Stmt.Print(new Expr.Variable(aTok));
+        var aTok   = varTok("a");
+        var decl   = new Stmt.Var(aTok, num(0.0));
+        var assign = new Stmt.Expression(
+                Expr.builder().name(aTok).value(num(5.0)).build());
+        var print  = new Stmt.Print(Expr.builder().name(aTok).build());
         assertEquals("5", exec(List.of(decl, assign, print)));
     }
 
     @Test
     void undefinedVariableThrowsRuntimeError() {
         // print notDefined; → RuntimeError
-        var expr = new Expr.Variable(varTok("notDefined"));
+        var expr = Expr.builder().name(varTok("notDefined")).build();
         var ex = assertThrows(RuntimeError.class,
                 () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("Undefined variable 'notDefined'"),
@@ -381,12 +376,12 @@ class ExecutorTest {
     void blockScopeShadowing() {
         // var x = "global"; { var x = "inner"; print x; } print x;
         // → "inner\nglobal"
-        var xTok = varTok("x");
-        var outerDecl = new Stmt.Var(xTok, str("global"));
-        var innerDecl = new Stmt.Var(xTok, str("inner"));
-        var innerPrint = new Stmt.Print(new Expr.Variable(xTok));
-        var block = new Stmt.Block(List.of(innerDecl, innerPrint));
-        var outerPrint = new Stmt.Print(new Expr.Variable(xTok));
+        var xTok       = varTok("x");
+        var outerDecl  = new Stmt.Var(xTok, str("global"));
+        var innerDecl  = new Stmt.Var(xTok, str("inner"));
+        var innerPrint = new Stmt.Print(Expr.builder().name(xTok).build());
+        var block      = new Stmt.Block(List.of(innerDecl, innerPrint));
+        var outerPrint = new Stmt.Print(Expr.builder().name(xTok).build());
         assertEquals("inner\nglobal", exec(List.of(outerDecl, block, outerPrint)));
     }
 
@@ -394,12 +389,15 @@ class ExecutorTest {
     void mutatingEnclosingVarInBlock() {
         // var count = 0; { count = count + 1; } print count; → "1"
         var countTok = varTok("count");
-        var decl = new Stmt.Var(countTok, num(0.0));
-        var incr = new Expr.Binary(new Expr.Variable(countTok),
-                tok(TokenType.PLUS, "+"), num(1.0));
-        var assign = new Stmt.Expression(new Expr.Assign(countTok, incr));
-        var block = new Stmt.Block(List.of(assign));
-        var print = new Stmt.Print(new Expr.Variable(countTok));
+        var decl  = new Stmt.Var(countTok, num(0.0));
+        var incr  = Expr.builder()
+                .left(Expr.builder().name(countTok).build())
+                .op(tok(TokenType.PLUS, "+"))
+                .right(num(1.0)).build();
+        var assign = new Stmt.Expression(
+                Expr.builder().name(countTok).value(incr).build());
+        var block  = new Stmt.Block(List.of(assign));
+        var print  = new Stmt.Print(Expr.builder().name(countTok).build());
         assertEquals("1", exec(List.of(decl, block, print)));
     }
 
@@ -407,14 +405,15 @@ class ExecutorTest {
     void nestedScopeReadsOuter() {
         // var outer = "A"; { var inner = "B"; { print outer + inner; } }
         // → "AB"
-        var outerTok = varTok("outer");
-        var innerTok = varTok("inner");
+        var outerTok  = varTok("outer");
+        var innerTok  = varTok("inner");
         var declOuter = new Stmt.Var(outerTok, str("A"));
         var declInner = new Stmt.Var(innerTok, str("B"));
-        var concat = new Expr.Binary(new Expr.Variable(outerTok),
-                tok(TokenType.PLUS, "+"),
-                new Expr.Variable(innerTok));
-        var deepBlock = new Stmt.Block(List.of(new Stmt.Print(concat)));
+        var concat    = Expr.builder()
+                .left(Expr.builder().name(outerTok).build())
+                .op(tok(TokenType.PLUS, "+"))
+                .right(Expr.builder().name(innerTok).build()).build();
+        var deepBlock  = new Stmt.Block(List.of(new Stmt.Print(concat)));
         var outerBlock = new Stmt.Block(List.of(declInner, deepBlock));
         assertEquals("AB", exec(List.of(declOuter, outerBlock)));
     }
@@ -465,12 +464,17 @@ class ExecutorTest {
         // for (var j = 0; j < 3; j = j + 1) { print j; } → "0\n1\n2"
         var jTok = varTok("j");
         var init = new Stmt.Var(jTok, num(0.0));
-        var cond = new Expr.Comparison(new Expr.Variable(jTok),
-                tok(TokenType.LESS, "<"), num(3.0));
-        var incr = new Expr.Assign(jTok,
-                new Expr.Binary(new Expr.Variable(jTok),
-                        tok(TokenType.PLUS, "+"), num(1.0)));
-        var body = new Stmt.Block(List.of(new Stmt.Print(new Expr.Variable(jTok))));
+        var cond = Expr.builder()
+                .left(Expr.builder().name(jTok).build())
+                .op(tok(TokenType.LESS, "<"))
+                .right(num(3.0)).build();
+        var incr = Expr.builder()
+                .name(jTok)
+                .value(Expr.builder()
+                        .left(Expr.builder().name(jTok).build())
+                        .op(tok(TokenType.PLUS, "+"))
+                        .right(num(1.0)).build()).build();
+        var body    = new Stmt.Block(List.of(new Stmt.Print(Expr.builder().name(jTok).build())));
         var forStmt = new Stmt.For(init, cond, incr, body);
         assertEquals("0\n1\n2", exec(List.of(forStmt)));
     }
@@ -480,15 +484,20 @@ class ExecutorTest {
         // for 변수(j)가 루프 바깥에서 보이지 않아야 한다
         var jTok = varTok("j");
         var init = new Stmt.Var(jTok, num(0.0));
-        var cond = new Expr.Comparison(new Expr.Variable(jTok),
-                tok(TokenType.LESS, "<"), num(1.0));
-        var incr = new Expr.Assign(jTok,
-                new Expr.Binary(new Expr.Variable(jTok),
-                        tok(TokenType.PLUS, "+"), num(1.0)));
-        var body = new Stmt.Block(List.of());
+        var cond = Expr.builder()
+                .left(Expr.builder().name(jTok).build())
+                .op(tok(TokenType.LESS, "<"))
+                .right(num(1.0)).build();
+        var incr = Expr.builder()
+                .name(jTok)
+                .value(Expr.builder()
+                        .left(Expr.builder().name(jTok).build())
+                        .op(tok(TokenType.PLUS, "+"))
+                        .right(num(1.0)).build()).build();
+        var body    = new Stmt.Block(List.of());
         var forStmt = new Stmt.For(init, cond, incr, body);
         // 루프 실행 후 j를 읽으면 UndefinedVariable RuntimeError
-        var readJ = new Stmt.Print(new Expr.Variable(jTok));
+        var readJ = new Stmt.Print(Expr.builder().name(jTok).build());
         assertThrows(RuntimeError.class, () -> exec(List.of(forStmt, readJ)));
     }
 
@@ -499,7 +508,7 @@ class ExecutorTest {
     @Test
     void logicalAndBothTrue() {
         // if (true and true) print "yes"; → "yes"
-        var and = new Expr.Logical(bool(true), tok(TokenType.AND, "and"), bool(true));
+        var and  = Expr.builder().left(bool(true)).op(tok(TokenType.AND, "and")).right(bool(true)).build();
         var stmt = new Stmt.If(and, new Stmt.Print(str("yes")), null);
         assertEquals("yes", exec(List.of(stmt)));
     }
@@ -507,7 +516,7 @@ class ExecutorTest {
     @Test
     void logicalAndShortCircuit() {
         // if (false and true) print "yes"; → "" (우변 평가 안 됨)
-        var and = new Expr.Logical(bool(false), tok(TokenType.AND, "and"), bool(true));
+        var and  = Expr.builder().left(bool(false)).op(tok(TokenType.AND, "and")).right(bool(true)).build();
         var stmt = new Stmt.If(and, new Stmt.Print(str("yes")), null);
         assertEquals("", exec(List.of(stmt)));
     }
@@ -515,7 +524,7 @@ class ExecutorTest {
     @Test
     void logicalOrSecondTrue() {
         // if (false or true) print "yes"; → "yes"
-        var or = new Expr.Logical(bool(false), tok(TokenType.OR, "or"), bool(true));
+        var or   = Expr.builder().left(bool(false)).op(tok(TokenType.OR, "or")).right(bool(true)).build();
         var stmt = new Stmt.If(or, new Stmt.Print(str("yes")), null);
         assertEquals("yes", exec(List.of(stmt)));
     }
@@ -529,16 +538,14 @@ class ExecutorTest {
     @Test
     void unaryBang_onFalse_returnsTrue() {
         // !false → true   (line 119: BANG 케이스)
-        var expr = new Expr.Unary(tok(TokenType.BANG, "!"), bool(false));
+        var expr = Expr.builder().op(tok(TokenType.BANG, "!")).operand(bool(false)).build();
         assertEquals("true", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void unaryBang_onNumber_isTruthy_returnsTrue_line186() {
         // !5.0 → false
-        // isTruthy(5.0): null 아님(184) → Boolean 아님(185) → return true(186)
-        // BANG 케이스(119)와 isTruthy return true(186) 동시 커버
-        var expr = new Expr.Unary(tok(TokenType.BANG, "!"), num(5.0));
+        var expr = Expr.builder().op(tok(TokenType.BANG, "!")).operand(num(5.0)).build();
         assertEquals("false", exec(List.of(new Stmt.Print(expr))));
     }
 
@@ -547,7 +554,7 @@ class ExecutorTest {
     @Test
     void unaryUnknownOperator_throwsRuntimeError() {
         // PLUS는 unary switch의 default → RuntimeError (line 120)
-        var expr = new Expr.Unary(tok(TokenType.PLUS, "+"), num(1.0));
+        var expr = Expr.builder().op(tok(TokenType.PLUS, "+")).operand(num(1.0)).build();
         assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
     }
 
@@ -556,6 +563,7 @@ class ExecutorTest {
     @Test
     void binaryUnknownOperator_throwsRuntimeError() {
         // GREATER는 Binary switch의 default → RuntimeError (line 137)
+        // Builder가 GREATER를 Comparison으로 분기하므로 생성자로 직접 "잘못된" 조합 생성
         var expr = new Expr.Binary(num(1.0), tok(TokenType.GREATER, ">"), num(2.0));
         assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
     }
@@ -565,14 +573,14 @@ class ExecutorTest {
     @Test
     void comparison_greaterEqual_true() {
         // 5 >= 5 → true  (line 148)
-        var expr = new Expr.Comparison(num(5.0), tok(TokenType.GREATER_EQUAL, ">="), num(5.0));
+        var expr = Expr.builder().left(num(5.0)).op(tok(TokenType.GREATER_EQUAL, ">=")).right(num(5.0)).build();
         assertEquals("true", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void comparison_greaterEqual_false() {
         // 3 >= 5 → false  (line 148)
-        var expr = new Expr.Comparison(num(3.0), tok(TokenType.GREATER_EQUAL, ">="), num(5.0));
+        var expr = Expr.builder().left(num(3.0)).op(tok(TokenType.GREATER_EQUAL, ">=")).right(num(5.0)).build();
         assertEquals("false", exec(List.of(new Stmt.Print(expr))));
     }
 
@@ -581,14 +589,14 @@ class ExecutorTest {
     @Test
     void comparison_lessEqual_true() {
         // 3 <= 5 → true  (line 150)
-        var expr = new Expr.Comparison(num(3.0), tok(TokenType.LESS_EQUAL, "<="), num(5.0));
+        var expr = Expr.builder().left(num(3.0)).op(tok(TokenType.LESS_EQUAL, "<=")).right(num(5.0)).build();
         assertEquals("true", exec(List.of(new Stmt.Print(expr))));
     }
 
     @Test
     void comparison_lessEqual_false() {
         // 5 <= 3 → false  (line 150)
-        var expr = new Expr.Comparison(num(5.0), tok(TokenType.LESS_EQUAL, "<="), num(3.0));
+        var expr = Expr.builder().left(num(5.0)).op(tok(TokenType.LESS_EQUAL, "<=")).right(num(3.0)).build();
         assertEquals("false", exec(List.of(new Stmt.Print(expr))));
     }
 
@@ -597,6 +605,7 @@ class ExecutorTest {
     @Test
     void comparisonUnknownOperator_throwsRuntimeError() {
         // PLUS는 Comparison switch의 default → RuntimeError (line 151)
+        // Builder가 PLUS를 Binary로 분기하므로 생성자로 직접 "잘못된" 조합 생성
         var expr = new Expr.Comparison(num(1.0), tok(TokenType.PLUS, "+"), num(2.0));
         assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
     }
@@ -606,7 +615,7 @@ class ExecutorTest {
     @Test
     void binaryMinus_withString_throwsRuntimeError() {
         // "str" - 5 → checkNumberOperands throw
-        var expr = new Expr.Binary(str("str"), tok(TokenType.MINUS, "-"), num(5.0));
+        var expr = Expr.builder().left(str("str")).op(tok(TokenType.MINUS, "-")).right(num(5.0)).build();
         var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("타입과") && ex.getMessage().contains("연산은 지원하지 않습니다"));
     }
@@ -618,7 +627,7 @@ class ExecutorTest {
     @Test
     void booleanMultiplication_throwsWithTypeName() {
         // true * false → "boolean 타입과 boolean 타입에 대해 '*' 연산은 지원하지 않습니다."
-        var expr = new Expr.Binary(bool(true), tok(TokenType.STAR, "*"), bool(false));
+        var expr = Expr.builder().left(bool(true)).op(tok(TokenType.STAR, "*")).right(bool(false)).build();
         var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("boolean 타입과 boolean 타입"),
                 "실제 메시지: " + ex.getMessage());
@@ -629,7 +638,7 @@ class ExecutorTest {
     @Test
     void numberMinusString_throwsWithTypeName() {
         // 3 - "hello" → "number 타입과 string 타입에 대해 '-' 연산은 지원하지 않습니다."
-        var expr = new Expr.Binary(num(3.0), tok(TokenType.MINUS, "-"), str("hello"));
+        var expr = Expr.builder().left(num(3.0)).op(tok(TokenType.MINUS, "-")).right(str("hello")).build();
         var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("number 타입과 string 타입"),
                 "실제 메시지: " + ex.getMessage());
@@ -640,7 +649,7 @@ class ExecutorTest {
     @Test
     void unaryMinus_onBoolean_throwsWithTypeName() {
         // -true → "boolean 타입에 대해 '-' 연산은 지원하지 않습니다."
-        var expr = new Expr.Unary(tok(TokenType.MINUS, "-"), bool(true));
+        var expr = Expr.builder().op(tok(TokenType.MINUS, "-")).operand(bool(true)).build();
         var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("boolean 타입에 대해"),
                 "실제 메시지: " + ex.getMessage());
@@ -651,7 +660,8 @@ class ExecutorTest {
     @Test
     void nullMultiplication_throwsWithTypeName() {
         // null * 5 → "null 타입과 number 타입에 대해 '*' 연산은 지원하지 않습니다."
-        var expr = new Expr.Binary(new Expr.Literal(null), tok(TokenType.STAR, "*"), num(5.0));
+        var expr = Expr.builder().left(Expr.builder().literalValue(null).build())
+                .op(tok(TokenType.STAR, "*")).right(num(5.0)).build();
         var ex = assertThrows(RuntimeError.class, () -> exec(List.of(new Stmt.Print(expr))));
         assertTrue(ex.getMessage().contains("null 타입과 number 타입"),
                 "실제 메시지: " + ex.getMessage());

@@ -18,7 +18,7 @@ import java.util.function.Supplier;
  * <p>
  * Grammar (top-down, highest precedence last):
  * program    → statement* EOF
- * expression → assignment → or → and → comparison → term → factor → unary → primary
+ * expression → assignment → or → and → comparison → term → factor → unary → call → primary
  */
 public class Parser {
 
@@ -38,12 +38,12 @@ public class Parser {
     // ── Statements ────────────────────────────────────────────────────────────
 
     private Stmt statement() {
-        if (match(TokenType.FUNC))   return funcDeclaration();
+        if (match(TokenType.FUNC)) return funcDeclaration();
         if (match(TokenType.RETURN)) return returnStatement();
-        if (match(TokenType.VAR))    return varDeclaration();
-        if (match(TokenType.IF))     return ifStatement();
-        if (match(TokenType.FOR))    return forStatement();
-        if (match(TokenType.PRINT))  return printStatement();
+        if (match(TokenType.VAR)) return varDeclaration();
+        if (match(TokenType.IF)) return ifStatement();
+        if (match(TokenType.FOR)) return forStatement();
+        if (match(TokenType.PRINT)) return printStatement();
         if (match(TokenType.LEFT_BRACE)) return block();
         return expressionStatement();
     }
@@ -157,9 +157,10 @@ public class Parser {
 
     // ── Expressions (precedence: low → high) ──────────────────────────────────
 
-    private Expr leftAssoc(Supplier<Expr> operand, NodeBuilder builder, TokenType... ops) {
+    private Expr leftAssoc(Supplier<Expr> operand, TokenType... ops) {
         Expr expr = operand.get();
-        while (match(ops)) expr = builder.build(expr, previous(), operand.get());
+        while (match(ops))
+            expr = Expr.builder().left(expr).op(previous()).right(operand.get()).build();
         return expr;
     }
 
@@ -174,38 +175,39 @@ public class Parser {
         Expr expr = or();
         if (match(TokenType.EQUAL)) {
             Expr value = assignment();
-            if (expr instanceof Expr.Variable v)   return new Expr.Assign(v.name, value);
-            if (expr instanceof Expr.ArrayGet ag)  return new Expr.ArraySet(ag.name, ag.index, value);
+            if (expr instanceof Expr.Variable v) return new Expr.Assign(v.name, value);
+            if (expr instanceof Expr.ArrayGet ag) return new Expr.ArraySet(ag.name, ag.index, value);
             throw new ParseError(peek().line(), "Invalid assignment target.");
         }
         return expr;
     }
 
     private Expr or() {
-        return leftAssoc(this::and, Expr.Logical::new, TokenType.OR);
+        return leftAssoc(this::and, TokenType.OR);
     }
 
     private Expr and() {
-        return leftAssoc(this::comparison, Expr.Logical::new, TokenType.AND);
+        return leftAssoc(this::comparison, TokenType.AND);
     }
 
     private Expr comparison() {
-        return leftAssoc(this::term, Expr.Comparison::new,
+        return leftAssoc(this::term,
                 TokenType.GREATER, TokenType.GREATER_EQUAL,
                 TokenType.LESS, TokenType.LESS_EQUAL,
                 TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL);
     }
 
     private Expr term() {
-        return leftAssoc(this::factor, Expr.Binary::new, TokenType.PLUS, TokenType.MINUS);
+        return leftAssoc(this::factor, TokenType.PLUS, TokenType.MINUS);
     }
 
     private Expr factor() {
-        return leftAssoc(this::unary, Expr.Binary::new, TokenType.STAR, TokenType.SLASH);
+        return leftAssoc(this::unary, TokenType.STAR, TokenType.SLASH);
     }
 
     private Expr unary() {
-        if (match(TokenType.MINUS, TokenType.BANG)) return new Expr.Unary(previous(), unary());
+        if (match(TokenType.MINUS, TokenType.BANG))
+            return Expr.builder().op(previous()).operand(unary()).build();
         return call();
     }
 
@@ -236,7 +238,7 @@ public class Parser {
      */
     private Expr primary() {
         if (match(TokenType.NUMBER, TokenType.STRING, TokenType.TRUE, TokenType.FALSE))
-            return new Expr.Literal(previous().value(), previous().line());
+            return Expr.builder().literalValue(previous().value()).build();
         if (match(TokenType.IDENTIFIER)) {
             Token name = previous();
             if (match(TokenType.LEFT_BRACKET)) {
@@ -244,12 +246,12 @@ public class Parser {
                 consume(TokenType.RIGHT_BRACKET, "Expect ']' after index.");
                 return new Expr.ArrayGet(name, index);
             }
-            return new Expr.Variable(name);
+            return Expr.builder().name(name).build();
         }
         if (match(TokenType.LEFT_PAREN)) {
             Expr expr = expression();
             consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
-            return new Expr.Grouping(expr);
+            return Expr.builder().expression(expr).build();
         }
         throw new ParseError(peek().line(), "Expect expression.");
     }
@@ -293,8 +295,4 @@ public class Parser {
         return tokens.get(current - 1);
     }
 
-    @FunctionalInterface
-    private interface NodeBuilder {
-        Expr build(Expr left, Token op, Expr right);
-    }
 }
