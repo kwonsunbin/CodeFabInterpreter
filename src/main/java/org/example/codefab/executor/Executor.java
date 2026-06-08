@@ -2,6 +2,7 @@ package org.example.codefab.executor;
 
 import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
+import org.example.codefab.error.ReturnException;
 import org.example.codefab.error.RuntimeError;
 import org.example.codefab.log.Logger;
 import org.example.codefab.token.Token;
