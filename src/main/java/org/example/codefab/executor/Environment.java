@@ -127,6 +127,22 @@ public class Environment {
         return -1;
     }
 
+    // ── 클로저 캡처 ───────────────────────────────────────────────────────────
+
+    /**
+     * 현재 스코프 체인의 스냅샷을 담은 독립 Environment를 반환. 함수 클로저 캡처 전용.
+     * <p>
+     * 반환된 환경의 scopes 리스트는 this와 독립적이므로, 이후 this에 대한
+     * pushScope/popScope가 반환값에 영향을 주지 않는다.
+     * (단, 공유된 Scope 객체 내 values 변경은 양쪽 모두에 반영된다.)
+     */
+    public Environment captureForClosure() {
+        Environment snapshot = new Environment();
+        snapshot.scopes.clear();
+        snapshot.scopes.addAll(this.scopes); // 리스트 복사; Scope 객체는 공유
+        return snapshot;
+    }
+
     // ── 디버그 접근자 (Debugger) ───────────────────────────────────────────────
 
     public boolean has(String name) {

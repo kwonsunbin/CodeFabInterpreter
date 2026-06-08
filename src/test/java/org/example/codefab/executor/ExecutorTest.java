@@ -1,7 +1,9 @@
 package org.example.codefab.executor;
 
+import org.example.codefab.assembler.Assembler;
 import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
+import org.example.codefab.checker.Checker;
 import org.example.codefab.error.RuntimeError;
 import org.example.codefab.log.Logger;
 import org.example.codefab.token.Token;
@@ -32,6 +34,29 @@ class ExecutorTest {
     }
 
     // ── 헬퍼 ──────────────────────────────────────────────────────────────────
+
+    /**
+     * 소스 코드를 Assembler → Checker → Executor 전체 파이프라인으로 실행.
+     * Checker와 Executor가 동일한 Environment를 공유(Main.java와 동일 구성).
+     */
+    private String pipeline(String source) {
+        var global  = new Environment();
+        var checker = new Checker(global);
+        var exec    = new Executor(new Logger(false), global);
+        var baos    = new ByteArrayOutputStream();
+        var saved   = System.out;
+        System.setOut(new PrintStream(baos));
+        try {
+            var stmts  = new Assembler().assemble(source);
+            var result = checker.check(stmts);
+            if (!result.ok()) throw new AssertionError("Check errors: " + result.errors);
+            exec.run(stmts);
+        } finally {
+            System.out.flush();
+            System.setOut(saved);
+        }
+        return baos.toString().replace("\r\n", "\n").strip();
+    }
 
     /**
      * stdout 을 캡처하면서 program 실행, 결과 문자열 반환
@@ -876,6 +901,91 @@ class ExecutorTest {
         var ex = assertThrows(RuntimeError.class,
                 () -> exec(List.of(fn, new Stmt.Expression(call(read("f"))))));
         assertTrue(ex.getMessage().contains("Expected 1 argument(s) but got 0"), "실제: " + ex.getMessage());
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 12-P. 함수 재귀 — 전체 파이프라인 (Assembler→Checker→Executor, 공유 Environment)
+    //       기존 섹션 12는 손 AST(depth=-1, 동적 탐색). 이 섹션은 정적 바인딩까지 포함.
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    void pipeline_recursion_factorial_ifWithoutBraces() {
+        // 사용자 패턴: if 에 중괄호 없이 return 사용
+        // Func fact(n) { if (n <= 1) return 1; return n * fact(n - 1); }
+        // print fact(5); → "120"
+        assertEquals("120", pipeline("""
+                Func fact(n) {
+                    if (n <= 1) return 1;
+                    return n * fact(n - 1);
+                }
+                print fact(5);
+                """));
+    }
+
+    @Test
+    void pipeline_recursion_factorial_ifWithBraces() {
+        // if 에 중괄호 있는 표준 형태
+        // Func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); }
+        // print fact(6); → "720"
+        assertEquals("720", pipeline("""
+                Func fact(n) {
+                    if (n <= 1) { return 1; }
+                    return n * fact(n - 1);
+                }
+                print fact(6);
+                """));
+    }
+
+    @Test
+    void pipeline_recursion_fibonacci() {
+        // 이중 재귀: Func fib(n) { if (n <= 1) return n; return fib(n-1) + fib(n-2); }
+        // fib(10) = 55
+        assertEquals("55", pipeline("""
+                Func fib(n) {
+                    if (n <= 1) return n;
+                    return fib(n - 1) + fib(n - 2);
+                }
+                print fib(10);
+                """));
+    }
+
+    @Test
+    void pipeline_recursion_sumDownTo() {
+        // sum(n) = n + (n-1) + ... + 1: sum(10) = 55
+        assertEquals("55", pipeline("""
+                Func sum(n) {
+                    if (n <= 0) return 0;
+                    return n + sum(n - 1);
+                }
+                print sum(10);
+                """));
+    }
+
+    @Test
+    void pipeline_recursion_deepNesting() {
+        // 깊은 중첩 블록 안에서 재귀 호출 → 정적 바인딩 depth 불변 검증
+        assertEquals("120", pipeline("""
+                Func fact(n) {
+                    if (n <= 1) return 1;
+                    return n * fact(n - 1);
+                }
+                {
+                    var result = fact(5);
+                    print result;
+                }
+                """));
+    }
+
+    @Test
+    void pipeline_function_returnValueInVariable() {
+        // 반환값을 변수에 저장 후 출력
+        assertEquals("10", pipeline("""
+                Func add(a, b) {
+                    return a + b;
+                }
+                var r = add(3, 7);
+                print r;
+                """));
     }
 
     // ════════════════════════════════════════════════════════════════════════

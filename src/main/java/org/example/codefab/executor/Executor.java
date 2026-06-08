@@ -113,9 +113,10 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Void visitFunction(Stmt.Function stmt) {
-        // 선언 시점의 환경을 클로저로 캡처해 함수 값을 현재 스코프에 정의한다.
-        // (정의가 먼저 이뤄지므로 함수 본문에서 자기 자신을 호출하는 재귀가 가능하다.)
-        environment.define(stmt.name.origin(), new CodeFabFunction(stmt, environment));
+        // 선언 시점의 스코프 체인을 스냅샷으로 캡처해 클로저로 사용한다.
+        // captureForClosure()로 생성한 환경은 이후 pushScope/popScope에 독립적이므로,
+        // 블록 안에서 함수를 호출해도 클로저가 오염되지 않는다. 재귀도 정상 동작한다.
+        environment.define(stmt.name.origin(), new CodeFabFunction(stmt, environment.captureForClosure()));
         return null;
     }
 
