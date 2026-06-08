@@ -249,4 +249,80 @@ class CheckerTest {
         assertEquals(6.0, grouping.foldedValue);
         assertNull(addExpr.foldedValue);
     }
+
+    // ── Function checks ───────────────────────────────────────────────────────
+
+    @Test void returnOutsideFunction() {
+        var result = check("return 1;");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("top-level"));
+    }
+
+    @Test void returnInsideFunctionIsOk() {
+        assertTrue(check("Func greet() { return 1; }").ok());
+    }
+
+    @Test void callNonFunction() {
+        var result = check("var a = 1; a();");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("not a function"));
+    }
+
+    @Test void argCountTooFew() {
+        var result = check("Func add(x, y) { return x; } add(1);");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("expects"));
+    }
+
+    @Test void argCountTooMany() {
+        var result = check("Func greet() { return 1; } greet(1, 2);");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("expects"));
+    }
+
+    @Test void argCountMatchIsOk() {
+        assertTrue(check("Func add(x, y) { return x; } add(1, 2);").ok());
+    }
+
+    // ── Array checks ──────────────────────────────────────────────────────────
+
+    @Test void arrayDeclNonNumericSize() {
+        var result = check("var arr[\"hello\"];");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("number"));
+    }
+
+    @Test void arrayGetOnNonArray() {
+        var result = check("var a = 1; a[0];");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("not an array"));
+    }
+
+    @Test void arrayGetNonNumericIndex() {
+        var result = check("var arr[3]; arr[\"x\"];");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("number"));
+    }
+
+    @Test void arrayGetOutOfBounds() {
+        var result = check("var arr[3]; arr[5];");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("out of bounds"));
+    }
+
+    @Test void arrayGetValidIndex() {
+        assertTrue(check("var arr[3]; arr[2];").ok());
+    }
+
+    @Test void arraySetOnNonArray() {
+        var result = check("var a = 1; a[0] = 5;");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("not an array"));
+    }
+
+    @Test void arraySetOutOfBounds() {
+        var result = check("var arr[3]; arr[5] = 1;");
+        assertFalse(result.ok());
+        assertTrue(result.errors.get(0).message().contains("out of bounds"));
+    }
 }

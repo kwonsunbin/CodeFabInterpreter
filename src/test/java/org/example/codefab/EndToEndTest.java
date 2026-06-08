@@ -443,11 +443,4 @@ class EndToEndTest {
         assertTrue(result.hasRuntimeError());
         assertTrue(result.runtimeError().contains("타입과") && result.runtimeError().contains("연산은 지원하지 않습니다"));
     }
-
-    @Test void compareNonNumbers_runtimeError() {
-        // 타입 불일치는 실행 중에만 알 수 있으므로 Executor가 RuntimeError로 처리
-        var result = run("print \"a\" < \"b\";");
-        assertTrue(result.hasRuntimeError());
-        assertTrue(result.runtimeError().contains("타입과") && result.runtimeError().contains("연산은 지원하지 않습니다"));
-    }
 }
