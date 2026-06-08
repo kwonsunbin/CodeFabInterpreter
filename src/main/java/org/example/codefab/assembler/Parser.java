@@ -83,7 +83,7 @@ public class Parser {
     }
 
     /**
-     * var IDENTIFIER ( "[" expression "]" | "=" expression )? ;
+     * var IDENTIFIER ( "[" expression "]" | "=" "Array" "(" expression ")" | "=" expression )? ;
      */
     private Stmt varDeclaration() {
         Token name = consume(TokenType.IDENTIFIER, "Expect variable name.");
@@ -93,9 +93,20 @@ public class Parser {
             consume(TokenType.SEMICOLON, "Expect ';' after array declaration.");
             return new Stmt.ArrayDecl(name, size);
         }
-        Expr initializer = match(TokenType.EQUAL) ? expression() : null;
+        if (match(TokenType.EQUAL)) {
+            if (match(TokenType.ARRAY)) {
+                consume(TokenType.LEFT_PAREN, "Expect '(' after 'Array'.");
+                Expr size = expression();
+                consume(TokenType.RIGHT_PAREN, "Expect ')' after array size.");
+                consume(TokenType.SEMICOLON, "Expect ';' after array declaration.");
+                return new Stmt.ArrayDecl(name, size);
+            }
+            Expr initializer = expression();
+            consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
+            return new Stmt.Var(name, initializer);
+        }
         consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.");
-        return new Stmt.Var(name, initializer);
+        return new Stmt.Var(name, null);
     }
 
     /**
