@@ -7,6 +7,7 @@ import org.example.codefab.log.Logger;
 import org.example.codefab.token.Token;
 import org.example.codefab.token.TokenType;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -94,6 +95,31 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
     @Override
     public Void visitExpression(Stmt.Expression stmt) {
         evaluate(stmt.expression);
+        return null;
+    }
+
+    // ── Function declaration / return (Chapter 2) ─────────────────────────────
+
+    @Override
+    public Void visitFunction(Stmt.Function stmt) {
+        // 선언 시점의 환경을 클로저로 캡처해 함수 값을 현재 스코프에 정의한다.
+        // (정의가 먼저 이뤄지므로 함수 본문에서 자기 자신을 호출하는 재귀가 가능하다.)
+        environment.define(stmt.name.origin(), new CodeFabFunction(stmt, environment));
+        return null;
+    }
+
+    @Override
+    public Void visitReturn(Stmt.Return stmt) {
+        Object value = stmt.value != null ? evaluate(stmt.value) : null; // return; → nil
+        throw new ReturnException(value);
+    }
+
+    // ── Array declaration (Chapter 3) ─────────────────────────────────────────
+
+    @Override
+    public Void visitArrayDecl(Stmt.ArrayDecl stmt) {
+        int size = checkArraySize(stmt.name, evaluate(stmt.size));
+        environment.define(stmt.name.origin(), new Object[size]); // null로 초기화된 고정 크기 배열
         return null;
     }
 
@@ -190,7 +216,68 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
         return evaluate(expr.right);
     }
 
+    // ── Function call (Chapter 2) ─────────────────────────────────────────────
+
+    @Override
+    public Object visitCall(Expr.Call expr) {
+        Object callee = evaluate(expr.callee);
+
+        List<Object> arguments = new ArrayList<>();
+        for (Expr argument : expr.arguments) arguments.add(evaluate(argument));
+
+        if (!(callee instanceof CodeFabCallable function)) {
+            throw new RuntimeError(expr.paren, "Can only call functions.");
+        }
+        if (arguments.size() != function.arity()) {
+            throw new RuntimeError(expr.paren,
+                    "Expected " + function.arity() + " argument(s) but got " + arguments.size() + ".");
+        }
+        return function.call(this, arguments);
+    }
+
+    // ── Array index read / write (Chapter 3) ──────────────────────────────────
+
+    @Override
+    public Object visitArrayGet(Expr.ArrayGet expr) {
+        Object[] array = checkArray(expr.name, environment.get(expr.name));
+        int index = checkIndex(expr.name, evaluate(expr.index), array.length);
+        return array[index];
+    }
+
+    @Override
+    public Object visitArraySet(Expr.ArraySet expr) {
+        Object[] array = checkArray(expr.name, environment.get(expr.name));
+        int index = checkIndex(expr.name, evaluate(expr.index), array.length);
+        Object value = evaluate(expr.value);
+        array[index] = value;
+        return value; // 대입식은 그 값을 돌려준다
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private int checkArraySize(Token name, Object sizeVal) {
+        if (!(sizeVal instanceof Double d) || d != Math.floor(d) || d < 0) {
+            throw new RuntimeError(name, "Array size must be a non-negative integer.");
+        }
+        return (int) (double) d;
+    }
+
+    private Object[] checkArray(Token name, Object target) {
+        if (target instanceof Object[] array) return array;
+        throw new RuntimeError(name, "'" + name.origin() + "' is not an array.");
+    }
+
+    private int checkIndex(Token name, Object indexVal, int length) {
+        if (!(indexVal instanceof Double d) || d != Math.floor(d)) {
+            throw new RuntimeError(name, "Array index must be a number.");
+        }
+        int index = (int) (double) d;
+        if (index < 0 || index >= length) {
+            throw new RuntimeError(name,
+                    "Array index " + index + " is out of bounds for array of size " + length + ".");
+        }
+        return index;
+    }
 
     /** Execute a block in a fresh child environment. */
     public void executeBlock(List<Stmt> statements, Environment blockEnv) {
@@ -233,16 +320,19 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
     }
 
     private static String typeName(Object value) {
-        if (value == null)            return "null";
-        if (value instanceof Double)  return "number";
-        if (value instanceof Boolean) return "boolean";
-        if (value instanceof String)  return "string";
+        if (value == null)                    return "null";
+        if (value instanceof Double)          return "number";
+        if (value instanceof Boolean)         return "boolean";
+        if (value instanceof String)          return "string";
+        if (value instanceof Object[])        return "array";
+        if (value instanceof CodeFabCallable) return "function";
         return value.getClass().getSimpleName();
     }
 
     /**
      * Converts a runtime value to its display string.
      * Integral doubles are printed without the trailing .0 (15.0 → "15").
+     * Arrays render as [e0, e1, ...] with each element stringified recursively.
      */
     public static String stringify(Object value) {
         if (value == null) return "nil";
@@ -252,6 +342,14 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
             }
             return d.toString();
         }
-        return value.toString(); // Boolean, String
+        if (value instanceof Object[] array) {
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < array.length; i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(stringify(array[i]));
+            }
+            return sb.append("]").toString();
+        }
+        return value.toString(); // Boolean, String, CodeFabFunction
     }
 }
