@@ -7,7 +7,11 @@ import org.example.codefab.executor.Environment;
 import org.example.codefab.token.Token;
 import org.example.codefab.token.TokenType;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Checker Unit: static semantic analysis via recursive DFS (Visitor pattern).
@@ -23,6 +27,8 @@ import java.util.List;
  * 2. Self-reference in initializer (var a = a;).
  * 3. Use of undeclared variable (read context).
  * 4. Assignment to undeclared variable (write context).
+ * 5. Function rules: top-level return, call arity, calling a non-function.
+ * 6. Array rules: indexing a non-array, non-numeric / out-of-bounds index, bad size.
  * <p>
  * Runtime errors (type mismatch, division by zero) are intentionally left
  * to Executor — they require actual values and cannot be detected statically.
@@ -33,6 +39,12 @@ public class Checker implements Stmt.Visitor<Void> {
     private final Environment env;
 
     private CheckResult result;
+
+    // 함수/배열 의미 검사용 메타데이터 (REPL 세션 동안 Checker 인스턴스에 지속).
+    private int functionDepth = 0;
+    private final Map<String, Integer> functionArities = new HashMap<>();
+    private final Set<String>          arrayNames      = new HashSet<>();
+    private final Map<String, Integer> arraySizes      = new HashMap<>();
 
     /** 독립 실행/테스트용 — 자체 Environment 생성. */
     public Checker() { this(new Environment()); }
@@ -119,6 +131,49 @@ public class Checker implements Stmt.Visitor<Void> {
         return null;
     }
 
+    @Override
+    public Void visitFunction(Stmt.Function stmt) {
+        declare(stmt.name);
+        define(stmt.name);
+        functionArities.put(stmt.name.origin(), stmt.params.size());
+        beginScope();
+        functionDepth++;
+        for (Token param : stmt.params) {
+            declare(param);
+            define(param);
+        }
+        for (Stmt s : stmt.body) execute(s);
+        functionDepth--;
+        endScope();
+        return null;
+    }
+
+    @Override
+    public Void visitReturn(Stmt.Return stmt) {
+        if (functionDepth == 0) {
+            result.addError(stmt.keyword.line(), "Can't return from top-level code.");
+        }
+        if (stmt.value != null) scanExpr(stmt.value);
+        return null;
+    }
+
+    @Override
+    public Void visitArrayDecl(Stmt.ArrayDecl stmt) {
+        declare(stmt.name);
+        if (stmt.size instanceof Expr.Literal lit && !(lit.value instanceof Double)) {
+            result.addError(stmt.name.line(), "Array size must be a number.");
+        }
+        scanExpr(stmt.size);
+        arrayNames.add(stmt.name.origin());
+        if (stmt.size instanceof Expr.Literal lit && lit.value instanceof Double d) {
+            arraySizes.put(stmt.name.origin(), d.intValue());
+        } else {
+            arraySizes.put(stmt.name.origin(), -1);
+        }
+        define(stmt.name);
+        return null;
+    }
+
     // ── Expression scanner ────────────────────────────────────────────────────
     // 변수 스코프 규칙을 검사하고, 런타임 이전에 100% 확정되는 상수식을 미리 계산한다.
     // 상수면 그 값을, 아니면 null을 반환한다.
@@ -200,18 +255,46 @@ public class Checker implements Stmt.Visitor<Void> {
             case Expr.Call c -> {
                 scanExpr(c.callee);
                 for (Expr arg : c.arguments) scanExpr(arg);
+                // Rule 5: 함수 호출 검사 (해석된 변수를 호출 대상으로 할 때만)
+                if (c.callee instanceof Expr.Variable v && v.depth >= 0) {
+                    String name = v.name.origin();
+                    if (arrayNames.contains(name)) {
+                        result.addError(v.name.line(), "'" + name + "' is an array, not a function.");
+                    } else if (!functionArities.containsKey(name)) {
+                        result.addError(v.name.line(), "'" + name + "' is not a function.");
+                    } else {
+                        int expected = functionArities.get(name);
+                        int actual   = c.arguments.size();
+                        if (expected != actual) {
+                            result.addError(c.paren.line(),
+                                "'" + name + "' expects " + expected + " argument(s) but got " + actual + ".");
+                        }
+                    }
+                }
                 yield null;
             }
 
             case Expr.ArrayGet ag -> {
-                scanExpr(new Expr.Variable(ag.name));
-                scanExpr(ag.index);
+                String name  = ag.name.origin();
+                int    depth = env.distanceOf(name);
+                if (depth < 0) {
+                    result.addError(ag.name.line(), "Undefined variable '" + name + "'.");
+                } else if (!arrayNames.contains(name)) {
+                    result.addError(ag.name.line(), "'" + name + "' is not an array.");
+                }
+                checkArrayIndex(ag.name, ag.index, name, depth);
                 yield null;
             }
 
             case Expr.ArraySet as -> {
-                scanExpr(new Expr.Variable(as.name));
-                scanExpr(as.index);
+                String name  = as.name.origin();
+                int    depth = env.distanceOf(name);
+                if (depth < 0) {
+                    result.addError(as.name.line(), "Undefined variable '" + name + "'.");
+                } else if (!arrayNames.contains(name)) {
+                    result.addError(as.name.line(), "'" + name + "' is not an array.");
+                }
+                checkArrayIndex(as.name, as.index, name, depth);
                 scanExpr(as.value);
                 yield null;
             }
@@ -263,6 +346,27 @@ public class Checker implements Stmt.Visitor<Void> {
         if (value == null)              return false;
         if (value instanceof Boolean b) return b;
         return true;
+    }
+
+    /** 배열 인덱스 정적 검사: 숫자/비음 정수 여부, 리터럴이면 범위 초과 여부. */
+    private void checkArrayIndex(Token nameToken, Expr indexExpr, String name, int depth) {
+        scanExpr(indexExpr);
+        if (!(indexExpr instanceof Expr.Literal lit)) return;
+        if (!(lit.value instanceof Double)) {
+            result.addError(nameToken.line(), "Array index must be a number.");
+            return;
+        }
+        double idx = (Double) lit.value;
+        if (idx < 0 || idx != Math.floor(idx)) {
+            result.addError(nameToken.line(), "Array index must be a non-negative integer.");
+            return;
+        }
+        if (depth < 0 || !arrayNames.contains(name)) return;
+        Integer size = arraySizes.get(name);
+        if (size != null && size >= 0 && (int) idx >= size) {
+            result.addError(nameToken.line(),
+                "Array index " + (int) idx + " is out of bounds for array of size " + size + ".");
+        }
     }
 
     // ── Internal dispatch ─────────────────────────────────────────────────────
