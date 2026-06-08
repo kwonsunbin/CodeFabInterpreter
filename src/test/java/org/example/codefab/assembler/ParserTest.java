@@ -517,4 +517,35 @@ class ParserTest {
     void arraySetInvalidTargetThrows() {
         assertThrows(ParseError.class, () -> parse("1 + 2 = 5;"));
     }
+
+    // ── Array declaration with Array() syntax ────────────────────────────────
+
+    @Test
+    void arrayDeclWithArraySyntaxLiteralSize() {
+        var decl = getStatement("var arr = Array(5);", 0, Stmt.ArrayDecl.class);
+        assertEquals("arr", decl.name.origin());
+        assertEquals(5.0, ((Expr.Literal) decl.size).value);
+    }
+
+    @Test
+    void arrayDeclWithArraySyntaxExpressionSize() {
+        var decl = getStatement("var arr = Array(2 + 3);", 0, Stmt.ArrayDecl.class);
+        assertInstanceOf(Expr.Binary.class, decl.size);
+    }
+
+    @Test
+    void arrayDeclWithArraySyntaxProducesArrayDeclNode() {
+        var stmt = parse("var arr = Array(10);").get(0);
+        assertInstanceOf(Stmt.ArrayDecl.class, stmt);
+    }
+
+    @Test
+    void arrayDeclWithArraySyntaxMissingParenThrows() {
+        assertThrows(ParseError.class, () -> parse("var arr = Array 5);"));
+    }
+
+    @Test
+    void arrayDeclWithArraySyntaxMissingClosingParenThrows() {
+        assertThrows(ParseError.class, () -> parse("var arr = Array(5;"));
+    }
 }
