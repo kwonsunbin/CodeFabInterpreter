@@ -249,7 +249,7 @@ public class Parser {
      */
     private Expr primary() {
         if (match(TokenType.NUMBER, TokenType.STRING, TokenType.TRUE, TokenType.FALSE))
-            return Expr.builder().literalValue(previous().value()).build();
+            return Expr.builder().literalValue(previous().value()).line(previous().line()).build();
         if (match(TokenType.IDENTIFIER)) {
             Token name = previous();
             if (match(TokenType.LEFT_BRACKET)) {
