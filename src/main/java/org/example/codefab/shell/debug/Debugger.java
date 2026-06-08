@@ -237,8 +237,8 @@ public class Debugger implements ExecutionListener {
     private void printInspect() {
         out.println("[INSPECT] 현재 스코프 변수");
 
-        // allScopes(): 인덱스 0 = 전역(outermost), 마지막 = 현재(innermost)
-        List<Map<String, Object>> scopes = pipeline.executor().getEnvironment().allScopes();
+        // liveScopes(): 런타임에 실제로 정의된 변수만. 인덱스 0 = 전역(outermost), 마지막 = 현재(innermost)
+        List<Map<String, Object>> scopes = pipeline.executor().getEnvironment().liveScopes();
 
         boolean printedLocal = false;
         // 전역(index 0)을 제외한 안쪽 스코프 = 로컬 (안쪽부터 출력)
