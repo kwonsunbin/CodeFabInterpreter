@@ -1,6 +1,5 @@
 package org.example.codefab.shell.debug;
 
-import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
 import org.example.codefab.checker.CheckResult;
 import org.example.codefab.checker.Diagnostic;
@@ -115,7 +114,7 @@ public class Debugger implements ExecutionListener {
         // (제외하지 않으면 컨테이너와 첫 구문이 같은 줄에서 이중 정지)
         if (stmt instanceof Stmt.Block || stmt instanceof Stmt.For) return;
 
-        int line = lineOf(stmt);
+        int line = LineExtractor.INSTANCE.lineOf(stmt);
 
         boolean shouldPause = switch (mode) {
             case STEP     -> true;
@@ -272,32 +271,5 @@ public class Debugger implements ExecutionListener {
         if (value instanceof Boolean)  return "Boolean";
         if (value instanceof String)   return "String";
         return value.getClass().getSimpleName();
-    }
-
-    /** 구문에서 대표 줄번호를 추출. 토큰이 없는 경우 -1 */
-    private int lineOf(Stmt stmt) {
-        if (stmt instanceof Stmt.Var s)        return s.name.line();
-        if (stmt instanceof Stmt.Print s)      return exprLine(s.expression);
-        if (stmt instanceof Stmt.Expression s) return exprLine(s.expression);
-        if (stmt instanceof Stmt.If s)         return exprLine(s.condition);
-        if (stmt instanceof Stmt.For s)
-            return s.initializer != null ? lineOf(s.initializer) : exprLine(s.condition);
-        if (stmt instanceof Stmt.Block s)
-            return s.statements.isEmpty() ? -1 : lineOf(s.statements.get(0));
-        return -1;
-    }
-
-    /** 표현식에서 대표 줄번호를 추출. 토큰이 없는 리터럴은 -1 */
-    private int exprLine(Expr expr) {
-        if (expr == null)                       return -1;
-        if (expr instanceof Expr.Assign e)      return e.name.line();
-        if (expr instanceof Expr.Variable e)    return e.name.line();
-        if (expr instanceof Expr.Binary e)      return e.op.line();
-        if (expr instanceof Expr.Logical e)     return e.op.line();
-        if (expr instanceof Expr.Comparison e)  return e.op.line();
-        if (expr instanceof Expr.Unary e)       return e.op.line();
-        if (expr instanceof Expr.Grouping e)    return exprLine(e.expression);
-        if (expr instanceof Expr.Literal e)     return e.line;
-        return -1;
     }
 }
