@@ -37,6 +37,7 @@ public abstract sealed class Expr
         private Token op, name;
         private Object literalValue;
         private boolean hasLiteralValue = false;
+        private int literalLine = -1; // 리터럴의 소스 줄번호 (디버그 표시용)
 
         public Builder left(Expr left)               { this.left = left;             return this; }
         public Builder right(Expr right)             { this.right = right;           return this; }
@@ -46,6 +47,7 @@ public abstract sealed class Expr
         public Builder op(Token op)                  { this.op = op;                 return this; }
         public Builder name(Token name)              { this.name = name;             return this; }
         public Builder literalValue(Object val)      { this.literalValue = val; this.hasLiteralValue = true; return this; }
+        public Builder line(int line)                { this.literalLine = line;      return this; }
 
         public Expr build() {
             if (left != null && op != null && right != null) {
@@ -57,7 +59,7 @@ public abstract sealed class Expr
             if (name != null && value != null)   return new Assign(name, value);
             if (name != null)                    return new Variable(name);
             if (expression != null)              return new Grouping(expression);
-            if (hasLiteralValue)                 return new Literal(literalValue);
+            if (hasLiteralValue)                 return new Literal(literalValue, literalLine);
             throw new IllegalStateException("Cannot determine Expr type from provided fields.");
         }
     }
