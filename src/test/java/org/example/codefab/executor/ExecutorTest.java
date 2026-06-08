@@ -761,4 +761,226 @@ class ExecutorTest {
         var expr = new Expr.Comparison(num(3.0), tok(TokenType.LESS, "<"), str("abc"));
         assertEquals("true", exec(List.of(new Stmt.Print(expr))));
     }
+
+    // ── 함수/배열 테스트 헬퍼 ─────────────────────────────────────────────────
+    private Token ret()        { return tok(TokenType.RETURN, "return"); }
+    private Token rparen()     { return tok(TokenType.RIGHT_PAREN, ")"); }
+    private Expr  read(String name) { return new Expr.Variable(varTok(name)); }
+    private Expr  call(Expr callee, Expr... args) {
+        return new Expr.Call(callee, rparen(), List.of(args));
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 12. 함수 선언 / 호출 / return (codefab.txt Chapter 2)
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    void function_callWithParamsAndReturn() {
+        // Func add(a, b) { return a + b; }  print add(3, 4); → "7"
+        var aTok = varTok("a");
+        var bTok = varTok("b");
+        var sum  = new Expr.Binary(new Expr.Variable(aTok), tok(TokenType.PLUS, "+"), new Expr.Variable(bTok));
+        var fn   = new Stmt.Function(varTok("add"), List.of(aTok, bTok),
+                List.of(new Stmt.Return(ret(), sum)));
+        var print = new Stmt.Print(call(read("add"), num(3.0), num(4.0)));
+        assertEquals("7", exec(List.of(fn, print)));
+    }
+
+    @Test
+    void function_assignReturnValueToVariable() {
+        // Func add(a, b) { return a + b; }  var r = add(1, 2); print r; → "3"
+        var aTok = varTok("a");
+        var bTok = varTok("b");
+        var sum  = new Expr.Binary(new Expr.Variable(aTok), tok(TokenType.PLUS, "+"), new Expr.Variable(bTok));
+        var fn   = new Stmt.Function(varTok("add"), List.of(aTok, bTok),
+                List.of(new Stmt.Return(ret(), sum)));
+        var rTok = varTok("r");
+        var decl = new Stmt.Var(rTok, call(read("add"), num(1.0), num(2.0)));
+        var print = new Stmt.Print(new Expr.Variable(rTok));
+        assertEquals("3", exec(List.of(fn, decl, print)));
+    }
+
+    @Test
+    void function_noReturn_yieldsNil() {
+        // Func f() { }  print f(); → "nil"
+        var fn = new Stmt.Function(varTok("f"), List.of(), List.of());
+        assertEquals("nil", exec(List.of(fn, new Stmt.Print(call(read("f"))))));
+    }
+
+    @Test
+    void function_bareReturn_yieldsNil() {
+        // Func f() { return; }  print f(); → "nil"
+        var fn = new Stmt.Function(varTok("f"), List.of(),
+                List.of(new Stmt.Return(ret(), null)));
+        assertEquals("nil", exec(List.of(fn, new Stmt.Print(call(read("f"))))));
+    }
+
+    @Test
+    void function_returnStopsRemainingBody() {
+        // Func f() { return 1; print "unreachable"; }  f(); → 출력 없음
+        var fn = new Stmt.Function(varTok("f"), List.of(),
+                List.of(new Stmt.Return(ret(), num(1.0)), new Stmt.Print(str("unreachable"))));
+        assertEquals("", exec(List.of(fn, new Stmt.Expression(call(read("f"))))));
+    }
+
+    @Test
+    void function_recursion_factorial() {
+        // Func fact(n) { if (n <= 1) { return 1; } return n * fact(n - 1); }  print fact(5); → "120"
+        var nTok = varTok("n");
+        var cond = new Expr.Comparison(new Expr.Variable(nTok), tok(TokenType.LESS_EQUAL, "<="), num(1.0));
+        var baseReturn = new Stmt.Return(ret(), num(1.0));
+        var ifStmt = new Stmt.If(cond, new Stmt.Block(List.of(baseReturn)), null);
+        var nMinus1 = new Expr.Binary(new Expr.Variable(nTok), tok(TokenType.MINUS, "-"), num(1.0));
+        var product = new Expr.Binary(new Expr.Variable(nTok), tok(TokenType.STAR, "*"),
+                call(read("fact"), nMinus1));
+        var recurReturn = new Stmt.Return(ret(), product);
+        var fn = new Stmt.Function(varTok("fact"), List.of(nTok), List.of(ifStmt, recurReturn));
+        var print = new Stmt.Print(call(read("fact"), num(5.0)));
+        assertEquals("120", exec(List.of(fn, print)));
+    }
+
+    @Test
+    void function_closureSeesEnclosingVariable() {
+        // var outer = 10; Func f() { return outer; }  print f(); → "10"
+        var outerTok = varTok("outer");
+        var declOuter = new Stmt.Var(outerTok, num(10.0));
+        var fn = new Stmt.Function(varTok("f"), List.of(),
+                List.of(new Stmt.Return(ret(), new Expr.Variable(outerTok))));
+        var print = new Stmt.Print(call(read("f")));
+        assertEquals("10", exec(List.of(declOuter, fn, print)));
+    }
+
+    @Test
+    void function_printsAsFunctionValue() {
+        // Func f() { }  print f; → "<fn f>"
+        var fn = new Stmt.Function(varTok("f"), List.of(), List.of());
+        assertEquals("<fn f>", exec(List.of(fn, new Stmt.Print(read("f")))));
+    }
+
+    @Test
+    void call_nonFunction_throwsRuntimeError() {
+        // var x = 5;  x(); → RuntimeError ("Can only call functions.")
+        var xTok = varTok("x");
+        var decl = new Stmt.Var(xTok, num(5.0));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(decl, new Stmt.Expression(call(read("x"))))));
+        assertTrue(ex.getMessage().contains("Can only call functions"), "실제: " + ex.getMessage());
+    }
+
+    @Test
+    void call_arityMismatch_throwsRuntimeError() {
+        // Func f(a) { return a; }  f(); → RuntimeError (인자 개수 불일치)
+        var aTok = varTok("a");
+        var fn = new Stmt.Function(varTok("f"), List.of(aTok),
+                List.of(new Stmt.Return(ret(), new Expr.Variable(aTok))));
+        var ex = assertThrows(RuntimeError.class,
+                () -> exec(List.of(fn, new Stmt.Expression(call(read("f"))))));
+        assertTrue(ex.getMessage().contains("Expected 1 argument(s) but got 0"), "실제: " + ex.getMessage());
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // 13. 정적 배열 — 선언 / 인덱스 read·write / 런타임 오류 (Chapter 3)
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    void array_declInitializedWithNil() {
+        // var arr[3]; print arr[0]; → "nil"  (요소는 null로 초기화)
+        var arrTok = varTok("arr");
+        var decl = new Stmt.ArrayDecl(arrTok, num(3.0));
+        var print = new Stmt.Print(new Expr.ArrayGet(arrTok, num(0.0)));
+        assertEquals("nil", exec(List.of(decl, print)));
+    }
+
+    @Test
+    void array_writeThenRead() {
+        // var arr[3]; arr[0] = 10; print arr[0]; → "10"
+        var arrTok = varTok("arr");
+        var decl  = new Stmt.ArrayDecl(arrTok, num(3.0));
+        var set   = new Stmt.Expression(new Expr.ArraySet(arrTok, num(0.0), num(10.0)));
+        var print = new Stmt.Print(new Expr.ArrayGet(arrTok, num(0.0)));
+        assertEquals("10", exec(List.of(decl, set, print)));
+    }
+
+    @Test
+    void array_multipleWritesIndependent() {
+        // var arr[3]; arr[0]=10; arr[1]=20; arr[2]=30; print arr[1]; → "20"
+        var arrTok = varTok("arr");
+        var decl = new Stmt.ArrayDecl(arrTok, num(3.0));
+        var s0 = new Stmt.Expression(new Expr.ArraySet(arrTok, num(0.0), num(10.0)));
+        var s1 = new Stmt.Expression(new Expr.ArraySet(arrTok, num(1.0), num(20.0)));
+        var s2 = new Stmt.Expression(new Expr.ArraySet(arrTok, num(2.0), num(30.0)));
+        var print = new Stmt.Print(new Expr.ArrayGet(arrTok, num(1.0)));
+        assertEquals("20", exec(List.of(decl, s0, s1, s2, print)));
+    }
+
+    @Test
+    void array_computedIndex() {
+        // var arr[3]; var i = 2; arr[i - 1] = 7; print arr[1]; → "7"
+        var arrTok = varTok("arr");
+        var iTok   = varTok("i");
+        var decl   = new Stmt.ArrayDecl(arrTok, num(3.0));
+        var declI  = new Stmt.Var(iTok, num(2.0));
+        var idx    = new Expr.Binary(new Expr.Variable(iTok), tok(TokenType.MINUS, "-"), num(1.0));
+        var set    = new Stmt.Expression(new Expr.ArraySet(arrTok, idx, num(7.0)));
+        var print  = new Stmt.Print(new Expr.ArrayGet(arrTok, num(1.0)));
+        assertEquals("7", exec(List.of(decl, declI, set, print)));
+    }
+
+    @Test
+    void array_printWholeArray() {
+        // var arr[3]; arr[0] = 1; print arr; → "[1, nil, nil]"
+        var arrTok = varTok("arr");
+        var decl = new Stmt.ArrayDecl(arrTok, num(3.0));
+        var set  = new Stmt.Expression(new Expr.ArraySet(arrTok, num(0.0), num(1.0)));
+        var print = new Stmt.Print(new Expr.Variable(arrTok));
+        assertEquals("[1, nil, nil]", exec(List.of(decl, set, print)));
+    }
+
+    @Test
+    void array_indexOutOfBounds_throwsRuntimeError() {
+        // var arr[3]; print arr[5]; → RuntimeError (범위 초과)
+        var arrTok = varTok("arr");
+        var decl = new Stmt.ArrayDecl(arrTok, num(3.0));
+        var print = new Stmt.Print(new Expr.ArrayGet(arrTok, num(5.0)));
+        var ex = assertThrows(RuntimeError.class, () -> exec(List.of(decl, print)));
+        assertTrue(ex.getMessage().contains("out of bounds"), "실제: " + ex.getMessage());
+    }
+
+    @Test
+    void array_negativeIndex_throwsRuntimeError() {
+        // var arr[2]; arr[-1] = 1; → RuntimeError
+        var arrTok = varTok("arr");
+        var decl = new Stmt.ArrayDecl(arrTok, num(2.0));
+        var set  = new Stmt.Expression(new Expr.ArraySet(arrTok, num(-1.0), num(1.0)));
+        assertThrows(RuntimeError.class, () -> exec(List.of(decl, set)));
+    }
+
+    @Test
+    void array_nonNumberIndex_throwsRuntimeError() {
+        // var arr[1]; print arr["x"]; → RuntimeError ("Array index must be a number.")
+        var arrTok = varTok("arr");
+        var decl = new Stmt.ArrayDecl(arrTok, num(1.0));
+        var print = new Stmt.Print(new Expr.ArrayGet(arrTok, str("x")));
+        var ex = assertThrows(RuntimeError.class, () -> exec(List.of(decl, print)));
+        assertTrue(ex.getMessage().contains("Array index must be a number"), "실제: " + ex.getMessage());
+    }
+
+    @Test
+    void array_indexOnNonArray_throwsRuntimeError() {
+        // var x = 10; print x[0]; → RuntimeError ("'x' is not an array.")
+        var xTok = varTok("x");
+        var decl = new Stmt.Var(xTok, num(10.0));
+        var print = new Stmt.Print(new Expr.ArrayGet(xTok, num(0.0)));
+        var ex = assertThrows(RuntimeError.class, () -> exec(List.of(decl, print)));
+        assertTrue(ex.getMessage().contains("is not an array"), "실제: " + ex.getMessage());
+    }
+
+    @Test
+    void array_nonNumberSize_throwsRuntimeError() {
+        // var arr["hi"]; → RuntimeError ("Array size must be a non-negative integer.")
+        var arrTok = varTok("arr");
+        var decl = new Stmt.ArrayDecl(arrTok, str("hi"));
+        var ex = assertThrows(RuntimeError.class, () -> exec(List.of(decl)));
+        assertTrue(ex.getMessage().contains("Array size must be a non-negative integer"), "실제: " + ex.getMessage());
+    }
 }
