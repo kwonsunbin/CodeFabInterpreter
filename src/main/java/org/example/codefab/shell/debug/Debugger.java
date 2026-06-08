@@ -169,8 +169,18 @@ public class Debugger implements ExecutionListener {
                     if (arg.isEmpty()) { out.println("사용법: break <줄번호>"); break; }
                     try {
                         int bp = Integer.parseInt(arg);
-                        breakpoints.add(bp);
-                        out.println("[DEBUG] " + bp + "번째 줄에 breakpoint 설정");
+                        int resolved = resolveBreakLine(bp);
+                        if (resolved < 0) {
+                            out.println("[DEBUG] " + bp + "번째 줄 이후로 실행 가능한 코드가 없어 breakpoint를 설정할 수 없습니다.");
+                            break;
+                        }
+                        breakpoints.add(resolved);
+                        if (resolved == bp) {
+                            out.println("[DEBUG] " + bp + "번째 줄에 breakpoint 설정");
+                        } else {
+                            out.println("[DEBUG] " + bp + "번째 줄은 공백/주석입니다. 가장 가까운 실행 라인인 "
+                                    + resolved + "번째 줄에 breakpoint를 설정했습니다.");
+                        }
                     } catch (NumberFormatException e) {
                         out.println("줄번호는 정수여야 합니다.");
                     }
@@ -258,6 +268,19 @@ public class Debugger implements ExecutionListener {
     private String sourceText(int line) {
         if (sourceLines == null || line < 1 || line > sourceLines.length) return "";
         return sourceLines[line - 1].strip();
+    }
+
+    /**
+     * 지정 라인이 공백/주석이면 아래 방향으로 가장 가까운 실행 가능 라인을 반환.
+     * 실행 가능 라인이 없으면 -1.
+     */
+    private int resolveBreakLine(int line) {
+        if (sourceLines == null) return line;
+        for (int i = line; i <= sourceLines.length; i++) {
+            String text = sourceLines[i - 1].strip();
+            if (!text.isEmpty() && !text.startsWith("//")) return i;
+        }
+        return -1;
     }
 
     /** 디버그 표시용 타입명 (대문자 시작) */
