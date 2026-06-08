@@ -1,0 +1,49 @@
+// 디버그 브레이크포인트 테스트
+// - for문 반복 시 특정 라인 반복 break 확인
+// - 함수 호출 중 특정 라인 반복 break 확인
+// - 중첩 함수 호출 시 내부 라인 break 확인
+
+// ── for 루프 단독 테스트 ─────────────────────────────────────
+
+var total = 0;
+
+for (var i = 1; i < 6; i = i + 1) {
+    var step = i * 2;       // 브레이크포인트 대상: 루프 5회 hit
+    total = total + step;   // 브레이크포인트 대상: 루프 5회 hit
+    print step;
+}
+
+print total;
+
+// ── 함수 호출 + for 루프 테스트 ─────────────────────────────
+
+Func multiply(x, y) {
+    var result = x * y;   // 브레이크포인트 대상: 루프 횟수(5회)만큼 hit
+    print result;         // 브레이크포인트 대상: 루프 횟수(5회)만큼 hit
+    return result;
+}
+
+var acc = 0;
+
+for (var j = 1; j < 6; j = j + 1) {
+    var val = multiply(j, 3);   // 브레이크포인트 대상: 5회 hit
+    acc = acc + val;
+}
+
+print acc;
+
+// ── 중첩 함수 호출 테스트 ────────────────────────────────────
+
+Func add(a, b) {
+    var sum = a + b;   // 브레이크포인트 대상: compute 호출 횟수(3회)만큼 hit
+    return sum;
+}
+
+Func compute(n) {
+    var r = add(n, 10);   // 브레이크포인트 대상: 3회 hit
+    return r;
+}
+
+for (var k = 0; k < 3; k = k + 1) {
+    print compute(k);   // 브레이크포인트 대상: 3회 hit
+}
