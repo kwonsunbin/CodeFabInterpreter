@@ -26,7 +26,8 @@ public class Lexer {
             Map.entry("and",    TokenType.AND),
             Map.entry("or",     TokenType.OR),
             Map.entry("Func",   TokenType.FUNC),
-            Map.entry("return", TokenType.RETURN)
+            Map.entry("return", TokenType.RETURN),
+            Map.entry("Array",  TokenType.ARRAY)
     );
 
     private final String source;
