@@ -19,7 +19,7 @@ public enum TokenType {
     AND, OR,
 
     // Keywords
-    VAR, IF, ELSE, FOR, PRINT, TRUE, FALSE, FUNC, RETURN,
+    VAR, IF, ELSE, FOR, PRINT, TRUE, FALSE, FUNC, RETURN, ARRAY,
 
     // Identifiers and literals
     IDENTIFIER, NUMBER, STRING,

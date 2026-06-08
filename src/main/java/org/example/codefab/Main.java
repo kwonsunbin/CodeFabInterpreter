@@ -2,6 +2,7 @@ package org.example.codefab;
 
 import org.example.codefab.assembler.Assembler;
 import org.example.codefab.checker.Checker;
+import org.example.codefab.executor.Environment;
 import org.example.codefab.executor.Executor;
 import org.example.codefab.log.Logger;
 import org.example.codefab.shell.FileRunner;
@@ -27,11 +28,13 @@ public class Main {
         List<String> argList = Arrays.asList(args);
         boolean verbose = argList.contains("--verbose");
 
-        Logger    log      = new Logger(verbose);
+        Logger    log       = new Logger(verbose);
         Assembler assembler = new Assembler();
-        Checker   checker  = new Checker();
-        Executor  executor = new Executor(log);
-        Pipeline  pipeline = new Pipeline(assembler, checker, executor, log, System.out);
+        // Checker가 생성한 전역 Environment를 Executor가 주입받아 그대로 활용한다 (단일 스코프 구조 공유).
+        Environment global  = new Environment();
+        Checker   checker   = new Checker(global);
+        Executor  executor  = new Executor(log, global);
+        Pipeline  pipeline  = new Pipeline(assembler, checker, executor, log, System.out);
 
         List<String> effectiveArgs = argList.stream()
                 .filter(a -> !a.equals("--verbose"))
