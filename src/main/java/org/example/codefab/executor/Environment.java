@@ -28,10 +28,13 @@ import java.util.Set;
  */
 public class Environment {
 
-    /** 한 스코프: 값 맵 + (Checker용) 정의 완료 이름 집합. */
+    /** 한 스코프: 값 맵 + (Checker용) 정의 완료 이름 집합 + (Debugger용) 런타임 실정의 이름 집합. */
     private static final class Scope {
         final Map<String, Object> values  = new HashMap<>();
         final Set<String>         defined = new HashSet<>();
+        // 런타임에 Executor가 실제로 define()한 이름만 담는다. Checker의 declare()가 미리 채워둔
+        // 자리(null)와 구분하기 위함 — inspect는 "지금 실행 시점에 살아있는 변수"만 보여야 한다.
+        final Set<String>         live    = new HashSet<>();
     }
 
     private final List<Scope> scopes;
@@ -60,6 +63,7 @@ public class Environment {
     public void define(String name, Object value) {
         current().values.put(name, value);
         current().defined.add(name);
+        current().live.add(name); // 런타임에 실제로 정의됨 → inspect에 노출
     }
 
     /** 변수 읽기 — 현재→외곽 순으로 체인을 탐색. 없으면 RuntimeError. */
@@ -148,10 +152,18 @@ public class Environment {
         return Collections.unmodifiableMap(current().values);
     }
 
-    /** 전 스코프를 외곽→내곽 순(index 0 = 전역)으로 반환. Debugger가 전체 체인을 순회할 때 사용. */
-    public List<Map<String, Object>> allScopes() {
+    /**
+     * 런타임에 실제로 정의된(live) 변수만 외곽→내곽 순(index 0 = 전역)으로 반환.
+     * Checker의 declare()가 미리 채워둔 자리(아직 실행이 도달하지 않은 변수)는 제외한다.
+     * Debugger의 inspect가 "현재 실행 시점에 살아있는 변수"만 보여주기 위해 사용.
+     */
+    public List<Map<String, Object>> liveScopes() {
         List<Map<String, Object>> view = new ArrayList<>(scopes.size());
-        for (Scope s : scopes) view.add(Collections.unmodifiableMap(s.values));
+        for (Scope s : scopes) {
+            Map<String, Object> liveValues = new HashMap<>();
+            for (String name : s.live) liveValues.put(name, s.values.get(name));
+            view.add(Collections.unmodifiableMap(liveValues));
+        }
         return Collections.unmodifiableList(view);
     }
 }
