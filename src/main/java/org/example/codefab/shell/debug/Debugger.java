@@ -228,25 +228,21 @@ public class Debugger implements ExecutionListener {
     private void printInspect() {
         out.println("[INSPECT] 현재 스코프 변수");
 
-        // 스코프 체인 수집: 첫 원소가 가장 안쪽, 마지막 원소(enclosing == null)가 전역
-        List<Environment> chain = new ArrayList<>();
-        for (Environment e = pipeline.executor().getEnvironment(); e != null; e = e.enclosing()) {
-            chain.add(e);
-        }
+        // allScopes(): 인덱스 0 = 전역(outermost), 마지막 = 현재(innermost)
+        List<Map<String, Object>> scopes = pipeline.executor().getEnvironment().allScopes();
 
         boolean printedLocal = false;
-        // 전역을 제외한 안쪽 스코프 = 로컬
-        for (int i = 0; i < chain.size() - 1; i++) {
-            for (Map.Entry<String, Object> v : chain.get(i).snapshot().entrySet()) {
+        // 전역(index 0)을 제외한 안쪽 스코프 = 로컬 (안쪽부터 출력)
+        for (int i = scopes.size() - 1; i > 0; i--) {
+            for (Map.Entry<String, Object> v : scopes.get(i).entrySet()) {
                 out.println("[로컬] " + v.getKey() + " = "
                         + Executor.stringify(v.getValue()) + " (" + displayType(v.getValue()) + ")");
                 printedLocal = true;
             }
         }
 
-        // 전역 스코프
-        Environment global = chain.get(chain.size() - 1);
-        Map<String, Object> globals = global.snapshot();
+        // 전역 스코프 (index 0)
+        Map<String, Object> globals = scopes.get(0);
         if (printedLocal && !globals.isEmpty()) out.println();
         globals.forEach((k, v) -> out.println("[전역] " + k + " = "
                 + Executor.stringify(v) + " (" + displayType(v) + ")"));

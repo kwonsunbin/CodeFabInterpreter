@@ -443,4 +443,10 @@ class EndToEndTest {
         assertTrue(result.hasRuntimeError());
         assertTrue(result.runtimeError().contains("타입과") && result.runtimeError().contains("연산은 지원하지 않습니다"));
     }
+
+    @Test void compareStrings_lexicographic() {
+        // 문자열 비교는 stringify 후 사전순 비교 (compareOrdered 적용)
+        assertEquals("true",  run("print \"a\" < \"b\";").stdout());
+        assertEquals("false", run("print \"b\" < \"a\";").stdout());
+    }
 }
