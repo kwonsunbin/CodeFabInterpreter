@@ -1,9 +1,7 @@
 package org.example.codefab.executor;
 
-import org.example.codefab.assembler.Assembler;
 import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
-import org.example.codefab.checker.Checker;
 import org.example.codefab.error.RuntimeError;
 import org.example.codefab.log.Logger;
 import org.example.codefab.token.Token;
@@ -34,29 +32,6 @@ class ExecutorTest {
     }
 
     // ── 헬퍼 ──────────────────────────────────────────────────────────────────
-
-    /**
-     * 소스 코드를 Assembler → Checker → Executor 전체 파이프라인으로 실행.
-     * Checker와 Executor가 동일한 Environment를 공유(Main.java와 동일 구성).
-     */
-    private String pipeline(String source) {
-        var global  = new Environment();
-        var checker = new Checker(global);
-        var exec    = new Executor(new Logger(false), global);
-        var baos    = new ByteArrayOutputStream();
-        var saved   = System.out;
-        System.setOut(new PrintStream(baos));
-        try {
-            var stmts  = new Assembler().assemble(source);
-            var result = checker.check(stmts);
-            if (!result.ok()) throw new AssertionError("Check errors: " + result.errors);
-            exec.run(stmts);
-        } finally {
-            System.out.flush();
-            System.setOut(saved);
-        }
-        return baos.toString().replace("\r\n", "\n").strip();
-    }
 
     /**
      * stdout 을 캡처하면서 program 실행, 결과 문자열 반환
