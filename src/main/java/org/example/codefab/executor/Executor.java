@@ -2,6 +2,7 @@ package org.example.codefab.executor;
 
 import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
+import org.example.codefab.error.ReturnException;
 import org.example.codefab.error.RuntimeError;
 import org.example.codefab.log.Logger;
 import org.example.codefab.token.Token;
@@ -115,7 +116,7 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
     public Void visitFunction(Stmt.Function stmt) {
         // 선언 시점의 환경을 클로저로 캡처해 함수 값을 현재 스코프에 정의한다.
         // (정의가 먼저 이뤄지므로 함수 본문에서 자기 자신을 호출하는 재귀가 가능하다.)
-        environment.define(stmt.name.origin(), new CodeFabFunction(stmt, environment));
+        environment.define(stmt.name.origin(), new CodeFabFunction(stmt, environment.captureForClosure()));
         return null;
     }
 

@@ -449,4 +449,61 @@ class EndToEndTest {
         assertEquals("true",  run("print \"a\" < \"b\";").stdout());
         assertEquals("false", run("print \"b\" < \"a\";").stdout());
     }
+
+    // ── 함수 선언 / 호출 / 재귀 ──────────────────────────────────────────────
+
+    @Test void function_simpleAdd() {
+        assertEquals("7", run("""
+                Func add(a, b) {
+                    return a + b;
+                }
+                print add(3, 4);
+                """).stdout());
+    }
+
+    @Test void function_recursion_factorial_ifWithoutBraces() {
+        // 사용자 패턴: if 에 중괄호 없이 return — if (n <= 1) return 1;
+        assertEquals("120", run("""
+                Func fact(n) {
+                    if (n <= 1) return 1;
+                    return n * fact(n - 1);
+                }
+                print fact(5);
+                """).stdout());
+    }
+
+    @Test void function_recursion_factorial_ifWithBraces() {
+        assertEquals("720", run("""
+                Func fact(n) {
+                    if (n <= 1) { return 1; }
+                    return n * fact(n - 1);
+                }
+                print fact(6);
+                """).stdout());
+    }
+
+    @Test void function_recursion_fibonacci() {
+        // 이중 재귀: fib(10) = 55
+        assertEquals("55", run("""
+                Func fib(n) {
+                    if (n <= 1) return n;
+                    return fib(n - 1) + fib(n - 2);
+                }
+                print fib(10);
+                """).stdout());
+    }
+
+    @Test void function_session_declareThenRecursiveCall() {
+        // REPL 세션: 선언과 호출을 별도 제출로 분리
+        assertEquals("24", runSession(
+                "Func fact(n) { if (n <= 1) return 1; return n * fact(n - 1); }",
+                "print fact(4);"
+        ));
+    }
+
+    @Test void function_returnOutsideFunction_checkError() {
+        var result = run("return 5;");
+        assertTrue(result.hasCheckError());
+        assertTrue(result.checkErrors().get(0).contains("Can't return from top-level code"));
+    }
 }
