@@ -21,12 +21,18 @@ import java.util.List;
 public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     private final Logger log;
-    private final Environment globalEnv = new Environment();
-    private Environment environment = globalEnv;
+    private Environment environment;   // 주입된(또는 자체 생성한) 전역 환경 — REPL 동안 지속
 
     private ExecutionListener listener;
 
-    public Executor(Logger log) { this.log = log; }
+    /** 독립 실행/테스트용 — 자체 전역 환경 생성. */
+    public Executor(Logger log) { this(log, new Environment()); }
+
+    /** Pipeline이 Checker와 공유하는 전역 환경을 주입한다. */
+    public Executor(Logger log, Environment global) {
+        this.log = log;
+        this.environment = global;
+    }
 
     /** 디버그 리스너 등록 / 해제 (null 전달 시 해제) */
     public void setListener(ExecutionListener l) { this.listener = l; }
@@ -117,17 +123,16 @@ public class Executor implements Stmt.Visitor<Void>, Expr.Visitor<Object> {
 
     @Override
     public Object visitVariable(Expr.Variable expr) {
-        // 정적 바인딩: Checker가 (depth, slot)을 산출했으면 이름 해싱 없이 배열 인덱스로 O(1) 접근
-        if (expr.depth >= 0 && expr.slot >= 0) return environment.getAt(expr.depth, expr.slot);
-        return environment.get(expr.name); // 미해석(손 AST 등) → 이름 기반 동적 조회 폴백
+        // 정적 바인딩: Checker가 depth를 계산했으면 해당 스코프로 즉시 접근
+        if (expr.depth >= 0) return environment.getAt(expr.depth, expr.name.origin());
+        return environment.get(expr.name); // 미해석(손 AST 등) → 동적 조회 폴백
     }
 
     @Override
     public Object visitAssign(Expr.Assign expr) {
         Object value = evaluate(expr.value);
-        // 정적 바인딩: (depth, slot)이 있으면 O(1)로 즉시 기록
-        if (expr.depth >= 0 && expr.slot >= 0) environment.setAt(expr.depth, expr.slot, value);
-        else                                   environment.assign(expr.name, value);
+        if (expr.depth >= 0) environment.setAt(expr.depth, expr.name.origin(), value);
+        else                 environment.assign(expr.name, value);
         return value;
     }
 

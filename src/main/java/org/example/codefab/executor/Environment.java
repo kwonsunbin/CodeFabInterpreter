@@ -5,151 +5,153 @@ import org.example.codefab.token.Token;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * Runtime variable environment backed by a list of slot-indexed {@link Frame}s.
+ * Checker와 Executor가 <b>함께 사용하는 단일 스코프 환경</b>.
  *
- * <p>Layout: {@code scopes.get(0)} = outermost (global / function root),
- * {@code scopes.get(scopes.size()-1)} = current (innermost) scope.
+ * <p>예전에는 Checker가 {@code Scope}(이름→선언상태), Executor가 {@code Environment}
+ * (이름→값)라는 유사한 두 클래스를 따로 두었다. 이 둘을 하나로 합쳐, Pipeline이 생성한
+ * 같은 Environment 인스턴스를 Checker가 분석에 쓰고 Executor가 주입받아 실행에 쓴다.
  *
- * <p><b>Static binding (Checker가 산출한 위치 주입):</b> Checker가 각 변수에 대해
- * 미리 계산한 {@code depth}(스코프 거리)와 {@code slot}(스코프 내 인덱스)으로
- * {@link #getAt}/{@link #setAt}이 이름 해싱 없이 배열 인덱스로 즉시 접근한다 (O(1)).
- * 각 {@code Frame}은 변수를 <em>선언 순서대로</em> 저장하므로, Checker가 선언 순서로
- * 부여한 slot과 런타임 저장 위치가 정확히 일치한다.
+ * <p>각 스코프는 두 가지를 보관한다:
+ * <ul>
+ *   <li>{@code values} — 이름→값 (런타임에 Executor가 채움)</li>
+ *   <li>{@code defined} — "초기화까지 끝나 사용 가능한 이름" 집합 (Checker의 2단계 선언/정의용)</li>
+ * </ul>
  *
- * <p><b>이름 기반 fallback:</b> Checker를 거치지 않은 AST(테스트의 손 AST 등)는
- * depth/slot이 미해석(-1)이라 {@link #get}/{@link #assign}이 스코프 체인을 이름으로
- * 탐색한다.
- *
- * <p><b>클로저:</b> {@code new Environment(closure)}는 closure의 프레임 리스트를
- * 얕게 복사(프레임 객체는 공유)하고 새 함수 본문 프레임을 덧붙인다. 공유 프레임을 통해
- * 가변 클로저 의미가 추가 장부 없이 보존된다.
+ * <p>스코프 체인은 리스트로 표현한다: index 0 = 최외곽(전역), 마지막 = 현재(최내곽).
  */
 public class Environment {
 
-    /** 한 스코프: 변수를 선언 순서(slot)대로 저장한다. */
-    private static final class Frame {
-        private final List<String> names  = new ArrayList<>();
-        private final List<Object> values = new ArrayList<>();
-
-        /** 현재 스코프에 선언. 이미 있으면 덮어쓰고, 없으면 다음 슬롯에 추가. */
-        void define(String name, Object value) {
-            int i = names.indexOf(name);
-            if (i >= 0) values.set(i, value);
-            else { names.add(name); values.add(value); }
-        }
-
-        int     slotOf(String name)   { return names.indexOf(name); }
-        boolean has(String name)      { return names.contains(name); }
-        Object  getSlot(int slot)     { return values.get(slot); }
-        void    setSlot(int slot, Object v) { values.set(slot, v); }
-
-        /** 디버그/조회용 이름→값 뷰 (선언 순서 유지). */
-        Map<String, Object> asMap() {
-            Map<String, Object> m = new LinkedHashMap<>();
-            for (int i = 0; i < names.size(); i++) m.put(names.get(i), values.get(i));
-            return m;
-        }
+    /** 한 스코프: 값 맵 + (Checker용) 정의 완료 이름 집합. */
+    private static final class Scope {
+        final Map<String, Object> values  = new HashMap<>();
+        final Set<String>         defined = new HashSet<>();
     }
 
-    private final List<Frame> scopes;
+    private final List<Scope> scopes;
 
-    /** Creates a new global environment (single global scope). */
+    /** 전역 환경 생성 (전역 스코프 하나). */
     public Environment() {
         scopes = new ArrayList<>();
-        scopes.add(new Frame());
+        scopes.add(new Scope());
     }
 
-    /**
-     * Creates a function-call environment: shallow-copies the closure's frame list
-     * (frames shared by reference) and appends a fresh frame for the function body.
-     */
-    public Environment(Environment closure) {
-        scopes = new ArrayList<>(closure.scopes);
-        scopes.add(new Frame());
+    /** 클로저 환경: 바깥 환경의 스코프 리스트를 얕게 복사(스코프 객체 공유)하고 새 스코프를 덧붙인다. */
+    public Environment(Environment enclosing) {
+        scopes = new ArrayList<>(enclosing.scopes);
+        scopes.add(new Scope());
     }
 
-    /** Push a new scope (called at block/for-loop entry). */
-    public void pushScope() { scopes.add(new Frame()); }
+    private Scope current() { return scopes.get(scopes.size() - 1); }
 
-    /** Pop the current scope (called at block/for-loop exit). */
+    // ── 스코프 진입/이탈 (블록·for 진입 시) ─────────────────────────────────────
+    public void pushScope() { scopes.add(new Scope()); }
     public void popScope()  { scopes.remove(scopes.size() - 1); }
 
-    /** Declare a variable in the current (innermost) scope. */
+    // ── 런타임: 값 저장/조회 (Executor) ────────────────────────────────────────
+
+    /** 현재 스코프에 변수를 정의한다 (값 저장 + 정의 완료 표시). */
     public void define(String name, Object value) {
-        scopes.get(scopes.size() - 1).define(name, value);
+        current().values.put(name, value);
+        current().defined.add(name);
     }
 
-    // ── Static binding (O(1) depth+slot access — Checker가 주입한 위치) ──────────
-
-    /** Reads the variable at the pre-computed (depth, slot) — pure index access, O(1). */
-    public Object getAt(int depth, int slot) {
-        return scopes.get(scopes.size() - 1 - depth).getSlot(slot);
-    }
-
-    /** Writes the variable at the pre-computed (depth, slot) — pure index access, O(1). */
-    public void setAt(int depth, int slot, Object value) {
-        scopes.get(scopes.size() - 1 - depth).setSlot(slot, value);
-    }
-
-    // ── Fallback chain-walk (depth == -1: Checker 미해석 AST) ───────────────────
-
-    /** Reads a variable by walking scopes from innermost to outermost. */
+    /** 변수 읽기 — 현재→외곽 순으로 체인을 탐색. 없으면 RuntimeError. */
     public Object get(Token name) {
         String key = name.origin();
         for (int i = scopes.size() - 1; i >= 0; i--) {
-            int slot = scopes.get(i).slotOf(key);
-            if (slot >= 0) return scopes.get(i).getSlot(slot);
+            if (scopes.get(i).values.containsKey(key)) return scopes.get(i).values.get(key);
         }
         throw new RuntimeError(name, "Undefined variable '" + key + "'.");
     }
 
-    /** Assigns a variable by walking scopes from innermost to outermost. */
+    /** 변수 할당 — 이름을 가진 가장 가까운 스코프에 덮어쓴다. 없으면 RuntimeError. */
     public void assign(Token name, Object value) {
         String key = name.origin();
         for (int i = scopes.size() - 1; i >= 0; i--) {
-            int slot = scopes.get(i).slotOf(key);
-            if (slot >= 0) { scopes.get(i).setSlot(slot, value); return; }
+            if (scopes.get(i).values.containsKey(key)) { scopes.get(i).values.put(key, value); return; }
         }
         throw new RuntimeError(name, "Undefined variable '" + key + "'.");
     }
 
-    // ── Debug accessors ───────────────────────────────────────────────────────
+    // ── 정적 바인딩 (Checker가 계산한 depth로 스코프를 한 번에 지정) ─────────────
+    // depth 0 = 현재(최내곽), N = N칸 바깥. 스코프 탐색을 건너뛰어 O(1)로 스코프에 도달한다.
 
-    /** Returns true if the name exists anywhere in the scope chain. */
+    /** Checker가 미리 계산한 depth의 스코프에서 변수를 읽는다. */
+    public Object getAt(int depth, String name) {
+        return scopes.get(scopes.size() - 1 - depth).values.get(name);
+    }
+
+    /** Checker가 미리 계산한 depth의 스코프에 변수를 기록한다. */
+    public void setAt(int depth, String name, Object value) {
+        scopes.get(scopes.size() - 1 - depth).values.put(name, value);
+    }
+
+    // ── 정적 분석: 2단계 선언/정의 (Checker) ──────────────────────────────────
+
+    /** 1단계: 현재 스코프에 이름을 선언(아직 사용 불가 — 초기화식 분석 중). */
+    public void declare(String name) {
+        current().values.put(name, null); // 자리만 확보 (값은 런타임에 채움)
+    }
+
+    /** 2단계: 초기화식 분석이 끝나 사용 가능하다고 표시. */
+    public void markDefined(String name) {
+        current().defined.add(name);
+    }
+
+    /** 현재 스코프에 이미 이 이름이 선언되어 있는가 (같은 스코프 중복 선언 검사). */
+    public boolean existsInCurrentScope(String name) {
+        return current().values.containsKey(name);
+    }
+
+    /** 현재 스코프에 선언됐지만 아직 정의(사용 가능) 전인가 (자기 참조 검사: var a = a;). */
+    public boolean isDeclaringInCurrentScope(String name) {
+        return current().values.containsKey(name) && !current().defined.contains(name);
+    }
+
+    /**
+     * 현재 스코프에서 name이 사용 가능(defined)하게 되기까지의 거리(depth).
+     * 0 = 현재, N = N칸 바깥. 어디에도 없으면 -1. (미정의 검사 + Executor용 depth 산출 겸용)
+     */
+    public int distanceOf(String name) {
+        int depth = 0;
+        for (int i = scopes.size() - 1; i >= 0; i--, depth++) {
+            if (scopes.get(i).defined.contains(name)) return depth;
+        }
+        return -1;
+    }
+
+    // ── 디버그 접근자 (Debugger) ───────────────────────────────────────────────
+
     public boolean has(String name) {
         for (int i = scopes.size() - 1; i >= 0; i--) {
-            if (scopes.get(i).has(name)) return true;
+            if (scopes.get(i).values.containsKey(name)) return true;
         }
         return false;
     }
 
-    /** Walks the scope chain and returns the value, or null if not found. */
     public Object getByName(String name) {
         for (int i = scopes.size() - 1; i >= 0; i--) {
-            int slot = scopes.get(i).slotOf(name);
-            if (slot >= 0) return scopes.get(i).getSlot(slot);
+            if (scopes.get(i).values.containsKey(name)) return scopes.get(i).values.get(name);
         }
         return null;
     }
 
-    /** Returns a read-only name→value view of the current (innermost) scope. */
+    /** 현재(최내곽) 스코프의 읽기 전용 이름→값 뷰. */
     public Map<String, Object> snapshot() {
-        return Collections.unmodifiableMap(scopes.get(scopes.size() - 1).asMap());
+        return Collections.unmodifiableMap(current().values);
     }
 
-    /**
-     * Returns all scopes as name→value maps, ordered outermost→innermost
-     * (index 0 = global / function root, last index = current scope).
-     * Used by the Debugger to iterate the full scope chain.
-     */
+    /** 전 스코프를 외곽→내곽 순(index 0 = 전역)으로 반환. Debugger가 전체 체인을 순회할 때 사용. */
     public List<Map<String, Object>> allScopes() {
         List<Map<String, Object>> view = new ArrayList<>(scopes.size());
-        for (Frame f : scopes) view.add(f.asMap());
+        for (Scope s : scopes) view.add(Collections.unmodifiableMap(s.values));
         return Collections.unmodifiableList(view);
     }
 }

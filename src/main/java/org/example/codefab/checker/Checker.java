@@ -3,16 +3,20 @@ package org.example.codefab.checker;
 
 import org.example.codefab.ast.Expr;
 import org.example.codefab.ast.Stmt;
+import org.example.codefab.executor.Environment;
 import org.example.codefab.token.Token;
 import org.example.codefab.token.TokenType;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.List;
 
 /**
  * Checker Unit: static semantic analysis via recursive DFS (Visitor pattern).
  * Collects ALL diagnostics in one pass — does not throw.
+ * <p>
+ * Scope tracking은 Executor와 <b>동일한 {@link Environment}</b>를 사용한다.
+ * Pipeline이 생성한 전역 Environment를 Checker가 주입받아 변수 선언/가시성을 분석하고,
+ * 같은 인스턴스를 Executor가 주입받아 런타임 값을 채운다. (예전의 별도 {@code Scope}
+ * 클래스를 제거하고 두 단계가 하나의 스코프 구조를 공유하도록 통합.)
  * <p>
  * Semantic rules implemented (detectable without execution):
  * 1. Duplicate variable declaration in the same block scope.
@@ -25,72 +29,45 @@ import java.util.List;
  */
 public class Checker implements Stmt.Visitor<Void> {
 
-    // Persistent global scope — survives across REPL submissions so
-    // previously declared globals are visible and re-declaration is caught.
-    private final Scope globalScope = new Scope();
-    private final Deque<Scope> scopes = new ArrayDeque<>();
+    // 전역 스코프는 이 Environment 안에서 REPL 세션 동안 지속된다.
+    private final Environment env;
 
     private CheckResult result;
+
+    /** 독립 실행/테스트용 — 자체 Environment 생성. */
+    public Checker() { this(new Environment()); }
+
+    /** Pipeline이 Executor와 공유하는 Environment를 주입한다. */
+    public Checker(Environment env) { this.env = env; }
 
     /**
      * Entry point — returns all collected diagnostics.
      */
     public CheckResult check(List<Stmt> program) {
         result = new CheckResult();
-        if (scopes.isEmpty()) scopes.push(globalScope);
-
         for (Stmt stmt : program) {
             execute(stmt);
         }
-
         return result;
     }
 
-    // ── Scope management ─────────────────────────────────────────────────────
+    // ── Scope management (Environment 위임) ────────────────────────────────────
 
-    private void beginScope() {
-        scopes.push(new Scope());
-    }
+    private void beginScope() { env.pushScope(); }
+    private void endScope()   { env.popScope(); }
 
-    private void endScope() {
-        scopes.pop();
-    }
-
-    /**
-     * Phase 1 of two-phase declare/define: marks name as DECLARING.
-     */
+    /** Phase 1: 현재 스코프에 선언 (이미 있으면 중복 선언 에러). */
     private void declare(Token name) {
-        Scope scope = scopes.peek();
-
-        if (scope.has(name.origin())) {
+        if (env.existsInCurrentScope(name.origin())) {
             result.addError(name.line(), "Already a variable with this name in this scope.");
             return;
         }
-        scope.declare(name.origin());
+        env.declare(name.origin());
     }
 
-    /**
-     * Phase 2: marks name as DEFINED (initializer fully resolved).
-     */
+    /** Phase 2: 초기화식 분석 완료 → 사용 가능으로 표시. */
     private void define(Token name) {
-        scopes.peek().define(name.origin());
-    }
-
-    /**
-     * Resolves a name to its static location: {depth, slot}.
-     * depth = scope distance (0 = current, N = N hops up), slot = index within that scope.
-     * Returns {-1, -1} if the name is not visible as DEFINED.
-     * DECLARING state is excluded — the variable exists but is not yet usable.
-     */
-    private int[] resolve(String name) {
-        int depth = 0;
-        for (Scope scope : scopes) {
-            if (scope.has(name) && scope.state(name) == Scope.State.DEFINED) {
-                return new int[]{depth, scope.slotOf(name)};
-            }
-            depth++;
-        }
-        return new int[]{-1, -1};
+        env.markDefined(name.origin());
     }
 
     // ── Statement visitors (DFS) ──────────────────────────────────────────────
@@ -143,9 +120,8 @@ public class Checker implements Stmt.Visitor<Void> {
     }
 
     // ── Expression scanner ────────────────────────────────────────────────────
-    // Enforces variable-scope rules, records depth on Variable/Assign nodes,
-    // and pre-computes constant expressions via constant folding.
-    // Returns the compile-time value if the expression is fully constant, null otherwise.
+    // 변수 스코프 규칙을 검사하고, 런타임 이전에 100% 확정되는 상수식을 미리 계산한다.
+    // 상수면 그 값을, 아니면 null을 반환한다.
 
     private Object scanExpr(Expr expr) {
         return switch (expr) {
@@ -193,32 +169,29 @@ public class Checker implements Stmt.Visitor<Void> {
             }
 
             case Expr.Variable v -> {
-                String name    = v.name.origin();
-                Scope  current = scopes.peek();
-                // Rule 2: self-reference — variable read during its own initializer
-                if (current.has(name) && current.state(name) == Scope.State.DECLARING) {
+                String name = v.name.origin();
+                // Rule 2: self-reference — 자기 초기화식에서 자신을 읽음
+                if (env.isDeclaringInCurrentScope(name)) {
                     result.addError(v.name.line(), "Can't read local variable in initializer.");
                     yield null;
                 }
-                // Rule 3 + static binding (depth + slot)
-                int[] loc = resolve(name);
-                if (loc[0] < 0) {
+                // Rule 3: 미정의 변수 읽기 + 정적 바인딩 depth 기록
+                int depth = env.distanceOf(name);
+                if (depth < 0) {
                     result.addError(v.name.line(), "Undefined variable '" + name + "'.");
                 } else {
-                    v.depth = loc[0];
-                    v.slot  = loc[1];
+                    v.depth = depth;
                 }
                 yield null;
             }
 
             case Expr.Assign a -> {
-                // Rule 4 + static binding (depth + slot)
-                int[] loc = resolve(a.name.origin());
-                if (loc[0] < 0) {
+                // Rule 4: 미정의 변수 할당 + 정적 바인딩 depth 기록
+                int depth = env.distanceOf(a.name.origin());
+                if (depth < 0) {
                     result.addError(a.name.line(), "Undefined variable '" + a.name.origin() + "'.");
                 } else {
-                    a.depth = loc[0];
-                    a.slot  = loc[1];
+                    a.depth = depth;
                 }
                 scanExpr(a.value);
                 yield null;
@@ -290,7 +263,6 @@ public class Checker implements Stmt.Visitor<Void> {
         if (value == null)              return false;
         if (value instanceof Boolean b) return b;
         return true;
-
     }
 
     // ── Internal dispatch ─────────────────────────────────────────────────────
