@@ -22,9 +22,9 @@
    - 2.5 Mock → 실제 Lexer 전환
    - 2.6 테스트 헬퍼 메서드 변천
 3. [코드리뷰 사례](#3-코드리뷰-사례)
-   - 3.1 PR #31 — Environment 단일화
-   - 3.2 PR #16 — SRP 적용
-   - 3.3 PR #14 — Logger DI 도입
+   - 3.1 [PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31) — Environment 단일화
+   - 3.2 [PR #16](https://github.com/kwonsunbin/CodeFabInterpreter/pull/16) — SRP 적용
+   - 3.3 [PR #14](https://github.com/kwonsunbin/CodeFabInterpreter/pull/14) — Logger DI 도입
 
 ---
 
@@ -58,7 +58,7 @@
 | 신규 파일 | `shell/debug/LineExtractor.java` |
 | 영향 파일 | `Debugger.java` — `lineOf()`, `exprLine()` 메서드 삭제 |
 
-**Before** — PR #35 이전: Debugger 내부에 직접 instanceof 체인
+**Before** — [PR #35](https://github.com/kwonsunbin/CodeFabInterpreter/pull/35) 이전: Debugger 내부에 직접 instanceof 체인
 
 ```java
 // Debugger.java (커밋 bc826be 이전) — 29줄 instanceof 분기
@@ -120,7 +120,7 @@ int line = LineExtractor.INSTANCE.lineOf(stmt);
 - **sealed class 시너지**: 새 AST 노드 추가 시 LineExtractor 컴파일 오류 → 줄번호 누락 방지
 - **패턴 일관성**: Executor, Checker와 동일한 Visitor 인터페이스 사용 → 코드베이스 통일
 
-**리뷰 포인트 요약 (PR #35)**
+**리뷰 포인트 요약 ([PR #35](https://github.com/kwonsunbin/CodeFabInterpreter/pull/35))**
 
 | 항목 | Before | After |
 |------|--------|-------|
@@ -339,7 +339,7 @@ var expr = Expr.builder().left(num(1.0)).op(tok(PLUS, "+")).right(num(2.0)).buil
 - **NodeBuilder 삭제**: 이항 연산만 처리하던 `@FunctionalInterface`가 단항·리터럴·변수까지 수용하는 `Expr.Builder`로 흡수
 - **API 통일**: Parser와 ExecutorTest 150건이 동일한 `Expr.builder()` 사용 → 생성 불일치 버그 방지
 
-**리뷰 포인트 요약 (PR #27)**
+**리뷰 포인트 요약 ([PR #27](https://github.com/kwonsunbin/CodeFabInterpreter/pull/27))**
 
 | 항목 | Before | After |
 |------|--------|-------|
@@ -370,7 +370,7 @@ var expr = Expr.builder().left(num(1.0)).op(tok(PLUS, "+")).right(num(2.0)).buil
 |------|------|
 | 기반 클래스 | `error/CodeFabError.java` |
 | 구현체 | `LexError.java`, `ParseError.java`, `RuntimeError.java` |
-| 도입 | 초기 설계 — PR #2(`feat/lexer`), PR #3(`feat/parser`), PR #8(`feat/executor`) |
+| 도입 | 초기 설계 — [PR #2](https://github.com/kwonsunbin/CodeFabInterpreter/pull/2)(`feat/lexer`), [PR #3](https://github.com/kwonsunbin/CodeFabInterpreter/pull/3)(`feat/parser`), [PR #8](https://github.com/kwonsunbin/CodeFabInterpreter/pull/8)(`feat/executor`) |
 
 **Before** — 단일 Exception에 문자열로 단계 구분 (가상 시나리오)
 
@@ -566,7 +566,7 @@ try {
 | 테스트 커밋 | [`ca989dd`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/ca989dd) — "Pipeline 단위 테스트 추가 — stdin 없이 실행 경로 검증" |
 | 단위 테스트 | `shell/PipelineTest.java` |
 
-**Before** — PR #13 이전: Shell이 Assembler·Checker·Executor를 직접 참조 + 실행 로직 혼재
+**Before** — [PR #13](https://github.com/kwonsunbin/CodeFabInterpreter/pull/13) 이전: Shell이 Assembler·Checker·Executor를 직접 참조 + 실행 로직 혼재
 
 ```java
 // Shell.java (커밋 3372489 이전) — REPL 루프와 실행 파이프라인이 한 클래스에 혼재
@@ -651,7 +651,7 @@ public class FileRunner {
 - **재사용성**: Shell·FileRunner·Debugger가 동일 Pipeline을 공유 → 실행 로직 중복 제거
 - **테스트 용이**: `PipelineTest`가 stdin 없이 Pipeline만 독립 테스트 가능
 
-**리뷰 포인트 요약 (PR #13)**
+**리뷰 포인트 요약 ([PR #13](https://github.com/kwonsunbin/CodeFabInterpreter/pull/13))**
 
 | 항목 | Before | After |
 |------|--------|-------|
@@ -673,7 +673,7 @@ public class FileRunner {
 | 테스트 파일 | `executor/ExecutorTest.java` — 150건 |
 | Red 커밋 | [`ec304f3`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/ec304f3) — "test(executor): 함수·배열 기능 Unit Test 추가 (손 AST, Checker 우회)" |
 | Green 커밋 | [`f34c674`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/f34c674) — "feat(executor): 함수 선언/호출·배열 리터럴/인덱싱 실행 구현" |
-| 관련 PR | PR #36 (`feat/executor-function-array`) |
+| 관련 PR | [PR #36](https://github.com/kwonsunbin/CodeFabInterpreter/pull/36) (`feat/executor-function-array`) |
 
 **Before** — Red 단계: Executor 미구현, 테스트가 먼저 존재
 
@@ -763,7 +763,7 @@ private String exec(List<Stmt> stmts) {
 | 구분 | 위치 |
 |------|------|
 | 테스트 파일 | `EndToEndTest.java` — 70건+ |
-| 초기 도입 PR | PR #12 (`test/EndToEnd`) — 커밋 [`917f619`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/917f619), [`7b91cfe`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/7b91cfe) |
+| 초기 도입 PR | [PR #12](https://github.com/kwonsunbin/CodeFabInterpreter/pull/12) (`test/EndToEnd`) — 커밋 [`917f619`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/917f619), [`7b91cfe`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/7b91cfe) |
 | 심화 추가 | 커밋 [`a6103d4`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/a6103d4) (0 나누기), [`b402fd0`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/b402fd0) (타입 오류 메시지) |
 
 **Before** — E2E 테스트 없이 유닛 테스트만 존재하던 시기의 문제
@@ -832,7 +832,7 @@ class EndToEndTest {
 **BP 포인트**
 
 - **두 격리 전략의 용도 구분**: `run()` — 기능 독립 검증, `runSession()` — REPL 누적 상태 검증
-- **회귀 방지**: PR #31의 Environment 통합 리팩터 후 70건 E2E가 즉시 회귀를 잡음
+- **회귀 방지**: [PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31)의 Environment 통합 리팩터 후 70건 E2E가 즉시 회귀를 잡음
 - **실제 파이프라인 오류 포착**: `EQUAL_EQUAL` 파싱 누락(커밋 [`ad07358`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/ad07358))처럼 유닛 테스트로 잡을 수 없는 버그를 조기 발견
 
 ---
@@ -845,7 +845,7 @@ class EndToEndTest {
 |------|------|
 | 테스트 파일 | `executor/OptimizationIntegrationTest.java` |
 | 관련 커밋 | [`40211d7`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/40211d7) — "feat(executor): Checker 최적화를 Executor에 연동" |
-| 관련 PR | PR #31 (`feat/executor-extension`) |
+| 관련 PR | [PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31) (`feat/executor-extension`) |
 
 **Before** — 최적화 연동 없이 Executor가 항상 전체 평가
 
@@ -1005,7 +1005,7 @@ class ParserTest {
 
 - **`src` 불일치 문제 해소**: Mock 단계에서는 `src`와 토큰 목록이 달라도 테스트가 통과했음 → 전환 후 강제 일치
 - **격리 비용 > 이점**: Lexer 안정화 이후 Mock 유지 비용이 이점을 초과 → `for`·`if` 테스트가 비활성 방치됐다가 전환 즉시 활성화 (9건 → 11건)
-- **Lexer-Parser 연동 오류 포착**: `EQUAL_EQUAL` 누락(PR #20)처럼 Mock으로는 잡을 수 없는 연동 버그를 실제 Lexer 테스트가 포착
+- **Lexer-Parser 연동 오류 포착**: `EQUAL_EQUAL` 누락([PR #20](https://github.com/kwonsunbin/CodeFabInterpreter/pull/20))처럼 Mock으로는 잡을 수 없는 연동 버그를 실제 Lexer 테스트가 포착
 
 ---
 
@@ -1058,7 +1058,7 @@ private Expr printExpr(String src) {
 
 ## 3. 코드리뷰 사례
 
-### 3.1 PR #31 — Environment 단일화
+### 3.1 [PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31) — Environment 단일화
 
 **참고 위치**
 
@@ -1066,7 +1066,7 @@ private Expr printExpr(String src) {
 |------|------|
 | PR | [PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31) |
 | 핵심 커밋 | [`f2a06b5`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/f2a06b5) — "Scope/Environment를 단일 Environment로 통합" |
-| 리뷰 반영 커밋 | [`54ba976`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/54ba976) — "정적 바인딩을 슬롯 인덱스 기반으로 전환 (PR #31 리뷰 반영)" |
+| 리뷰 반영 커밋 | [`54ba976`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/54ba976) — "정적 바인딩을 슬롯 인덱스 기반으로 전환 ([PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31) 리뷰 반영)" |
 | 영향 파일 | `Checker.java`, `Executor.java`, `Environment.java`, `Main.java` |
 
 **Before** — Checker의 `Scope`와 Executor의 `Environment`가 각자 독립 관리
@@ -1137,11 +1137,11 @@ public Object visitVariable(Expr.Variable expr) {
 - **단일 진실 공급처**: 스코프 구조가 Checker와 Executor에서 동일 → 깊이 불일치 버그 근절
 - **최적화 연동 가능**: 공유 Environment를 통해 Checker의 `depth` 메타데이터를 Executor가 활용 → O(N) → O(1)
 - **리팩터 규모**: Scope 클래스 삭제, 코드 약 99줄 감소, 308개 테스트 전부 통과
-- **리뷰 피드백 추적**: 커밋 메시지에 "PR #31 리뷰 반영" 명시 → 리뷰 → 수정 연결이 히스토리에 기록
+- **리뷰 피드백 추적**: 커밋 메시지에 "[PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31) 리뷰 반영" 명시 → 리뷰 → 수정 연결이 히스토리에 기록
 
 ---
 
-### 3.2 PR #16 — SRP 적용 (책임 분리)
+### 3.2 [PR #16](https://github.com/kwonsunbin/CodeFabInterpreter/pull/16) — SRP 적용 (책임 분리)
 
 **참고 위치**
 
@@ -1208,12 +1208,12 @@ public class Checker implements Stmt.Visitor<Void> {  // ← Expr.Visitor 제거
 **BP 포인트**
 
 - **SRP 적용 근거**: 변경 이유가 3가지(스코프 구조 변경, Expr 방문 방식, 검사 규칙)였던 Checker를 각각 단독 변경 가능하도록 분리
-- **이후 통합의 토대**: PR #31에서 ScopeStack이 Environment로 흡수 — 이 리팩터가 없었다면 통합 범위가 훨씬 컸을 것
+- **이후 통합의 토대**: [PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31)에서 ScopeStack이 Environment로 흡수 — 이 리팩터가 없었다면 통합 범위가 훨씬 컸을 것
 - **Expr.Visitor 제거 효과**: sealed switch가 완전성을 보장하므로 visitXxx 메서드 오버라이드 없이도 모든 케이스 처리
 
 ---
 
-### 3.3 PR #14 — Logger DI 도입
+### 3.3 [PR #14](https://github.com/kwonsunbin/CodeFabInterpreter/pull/14) — Logger DI 도입
 
 **참고 위치**
 
