@@ -16,10 +16,10 @@
    - 1.6 Pipeline / Facade 패턴
 2. [TDD 사례](#2-tdd-사례)
    - 2.1 Hand AST 기반 유닛 테스트
-   - 2.2 E2E + REPL 상태 공유 테스트
-   - 2.3 폭탄식(Bomb) 최적화 검증 테스트
-   - 2.4 브랜치 커버리지 목표 관리
-   - 2.5 Mock → 실제 Lexer 전환
+   - 2.2 Mock → 실제 Lexer 전환
+   - 2.3 E2E + REPL 상태 공유 테스트
+   - 2.4 폭탄식(Bomb) 최적화 검증 테스트
+   - 2.5 브랜치 커버리지 목표 관리
    - 2.6 테스트 헬퍼 메서드 변천
 3. [코드리뷰 사례](#3-코드리뷰-사례)
    - 3.1 [PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31) — Environment 단일화
@@ -756,7 +756,70 @@ private String exec(List<Stmt> stmts) {
 
 ---
 
-### 2.2 E2E + REPL 상태 공유 테스트
+### 2.2 Mock → 실제 Lexer 전환
+
+**참고 위치**
+
+| 구분 | 위치 |
+|------|------|
+| 전환 커밋 | [`168d8a0`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/168d8a0) — "테스트 코드 Mock 사용하는 부분 실제 Lexer 사용하도록 변경" |
+| 최종 정리 | [`822962f`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/822962f) — "Parser 및 ParserTest 리팩토링" |
+| 영향 파일 | `assembler/ParserTest.java` |
+
+**Before** — `@Mock Lexer` + `thenReturn(토큰 목록)` 직접 주입
+
+`"print 1 + 2 * 3;"` 한 줄을 테스트하려면 `Token` 객체 8개를 직접 나열해야 했다.  
+`parse(src)`의 `src`는 실제로 Lexer에 전달되지 않아 토큰 목록과 불일치해도 테스트가 통과했다.
+
+```java
+@ExtendWith(MockitoExtension.class)
+class ParserTest {
+    @Mock Lexer lexer;
+
+    private List<Stmt> parse(String src) {
+        return new Assembler(lexer).assemble(src);  // src는 무시됨
+    }
+
+    @Test void multiplicationBeforeAddition() {
+        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
+                new Token(TokenType.PRINT,     "print", null, 1),
+                new Token(TokenType.NUMBER,    "1",     1.0,  1),
+                new Token(TokenType.PLUS,      "+",     null, 1),
+                new Token(TokenType.NUMBER,    "2",     2.0,  1),
+                new Token(TokenType.STAR,      "*",     null, 1),
+                new Token(TokenType.NUMBER,    "3",     3.0,  1),
+                new Token(TokenType.SEMICOLON, ";",     null, 1),
+                new Token(TokenType.EOF,       "",      null, 1)
+        ));
+        var outer = (Expr.Binary) getOuterStatementOfSelectedStatement("print 1 + 2 * 3;", 0);
+    }
+}
+```
+
+**After** — 소스 문자열 한 줄, Mockito 의존성 완전 제거
+
+```java
+class ParserTest {
+    private List<Stmt> parse(String src) {
+        return new Assembler().assemble(src);  // 실제 Lexer 사용
+    }
+
+    @Test void multiplicationBeforeAddition() {
+        var outer = (Expr.Binary) printExpr("print 1 + 2 * 3;");
+        assertEquals(TokenType.PLUS, outer.op.type());
+    }
+}
+```
+
+**BP 포인트**
+
+- **`src` 불일치 문제 해소**: Mock 단계에서는 `src`와 토큰 목록이 달라도 테스트가 통과했음 → 전환 후 강제 일치
+- **격리 비용 > 이점**: Lexer 안정화 이후 Mock 유지 비용이 이점을 초과 → `for`·`if` 테스트가 비활성 방치됐다가 전환 즉시 활성화 (9건 → 11건)
+- **Lexer-Parser 연동 오류 포착**: `EQUAL_EQUAL` 누락([PR #20](https://github.com/kwonsunbin/CodeFabInterpreter/pull/20))처럼 Mock으로는 잡을 수 없는 연동 버그를 실제 Lexer 테스트가 포착
+
+---
+
+### 2.3 E2E + REPL 상태 공유 테스트
 
 **참고 위치**
 
@@ -837,7 +900,7 @@ class EndToEndTest {
 
 ---
 
-### 2.3 폭탄식(Bomb) 최적화 검증 테스트
+### 2.4 폭탄식(Bomb) 최적화 검증 테스트
 
 **참고 위치**
 
@@ -919,7 +982,7 @@ class OptimizationIntegrationTest {
 
 ---
 
-### 2.4 브랜치 커버리지 목표 관리
+### 2.5 브랜치 커버리지 목표 관리
 
 **커버리지 변화 요약**
 
@@ -943,69 +1006,6 @@ class OptimizationIntegrationTest {
 - **분기 주석 패턴**: 각 테스트에 커버하는 분기/줄번호를 주석으로 기록 → 나중에 읽어도 의도 명확
 - **LINE vs BRANCH 구분**: Lexer는 LINE이 이미 100%였고(EndToEndTests 기여), BRANCH만 미달 → 새 테스트가 특정 분기만 정밀 타격
 - **점진적 달성**: Lexer(BRANCH 86.2%→100%) → Parser(BRANCH 91.9%→98.4%) → Checker(LINE 89.9%→100%) → Executor(LINE 90.4%→100%) 순서로 파일별 목표를 별도 커밋으로 분리
-
----
-
-### 2.5 Mock → 실제 Lexer 전환
-
-**참고 위치**
-
-| 구분 | 위치 |
-|------|------|
-| 전환 커밋 | [`168d8a0`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/168d8a0) — "테스트 코드 Mock 사용하는 부분 실제 Lexer 사용하도록 변경" |
-| 최종 정리 | [`822962f`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/822962f) — "Parser 및 ParserTest 리팩토링" |
-| 영향 파일 | `assembler/ParserTest.java` |
-
-**Before** — `@Mock Lexer` + `thenReturn(토큰 목록)` 직접 주입
-
-`"print 1 + 2 * 3;"` 한 줄을 테스트하려면 `Token` 객체 8개를 직접 나열해야 했다.  
-`parse(src)`의 `src`는 실제로 Lexer에 전달되지 않아 토큰 목록과 불일치해도 테스트가 통과했다.
-
-```java
-@ExtendWith(MockitoExtension.class)
-class ParserTest {
-    @Mock Lexer lexer;
-
-    private List<Stmt> parse(String src) {
-        return new Assembler(lexer).assemble(src);  // src는 무시됨
-    }
-
-    @Test void multiplicationBeforeAddition() {
-        Mockito.when(lexer.scanTokens()).thenReturn(List.of(
-                new Token(TokenType.PRINT,     "print", null, 1),
-                new Token(TokenType.NUMBER,    "1",     1.0,  1),
-                new Token(TokenType.PLUS,      "+",     null, 1),
-                new Token(TokenType.NUMBER,    "2",     2.0,  1),
-                new Token(TokenType.STAR,      "*",     null, 1),
-                new Token(TokenType.NUMBER,    "3",     3.0,  1),
-                new Token(TokenType.SEMICOLON, ";",     null, 1),
-                new Token(TokenType.EOF,       "",      null, 1)
-        ));
-        var outer = (Expr.Binary) getOuterStatementOfSelectedStatement("print 1 + 2 * 3;", 0);
-    }
-}
-```
-
-**After** — 소스 문자열 한 줄, Mockito 의존성 완전 제거
-
-```java
-class ParserTest {
-    private List<Stmt> parse(String src) {
-        return new Assembler().assemble(src);  // 실제 Lexer 사용
-    }
-
-    @Test void multiplicationBeforeAddition() {
-        var outer = (Expr.Binary) printExpr("print 1 + 2 * 3;");
-        assertEquals(TokenType.PLUS, outer.op.type());
-    }
-}
-```
-
-**BP 포인트**
-
-- **`src` 불일치 문제 해소**: Mock 단계에서는 `src`와 토큰 목록이 달라도 테스트가 통과했음 → 전환 후 강제 일치
-- **격리 비용 > 이점**: Lexer 안정화 이후 Mock 유지 비용이 이점을 초과 → `for`·`if` 테스트가 비활성 방치됐다가 전환 즉시 활성화 (9건 → 11건)
-- **Lexer-Parser 연동 오류 포착**: `EQUAL_EQUAL` 누락([PR #20](https://github.com/kwonsunbin/CodeFabInterpreter/pull/20))처럼 Mock으로는 잡을 수 없는 연동 버그를 실제 Lexer 테스트가 포착
 
 ---
 
