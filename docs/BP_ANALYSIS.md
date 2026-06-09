@@ -1,4 +1,4 @@
-# CodeFabInterpreter — Best Practice 분석
+﻿# CodeFabInterpreter — Best Practice 분석
 
 > 179개 커밋 / 40개 PR / 4인 TDD 팀 프로젝트  
 > 분석 기준: 디자인패턴 · TDD · 코드리뷰
@@ -54,7 +54,7 @@
 | 구현체 2 | `checker/Checker.java` |
 | 구현체 3 | `shell/debug/LineExtractor.java` |
 | PR | [PR #35](https://github.com/kwonsunbin/CodeFabInterpreter/pull/35) `refactor/debugger-line-visitor` |
-| 핵심 커밋 | `bc826be` — "Debugger의 줄번호 추출 instanceof 체인을 Visitor로 교체" |
+| 핵심 커밋 | [`bc826be`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/bc826be) — "Debugger의 줄번호 추출 instanceof 체인을 Visitor로 교체" |
 | 신규 파일 | `shell/debug/LineExtractor.java` |
 | 영향 파일 | `Debugger.java` — `lineOf()`, `exprLine()` 메서드 삭제 |
 
@@ -457,7 +457,7 @@ try {
 | Observer 인터페이스 | `executor/ExecutionListener.java` |
 | Observable | `executor/Executor.java` — `setListener()`, `execute()` |
 | ConcreteObserver | `shell/debug/Debugger.java` |
-| 도입 커밋 | `624048e` — "디버그 모드 Observer 훅 연동 및 정지 로직 활성화" |
+| 도입 커밋 | [`624048e`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/624048e) — "디버그 모드 Observer 훅 연동 및 정지 로직 활성화" |
 
 **Before** — Observer 도입 전: Executor에 디버거 로직이 직접 결합
 
@@ -562,8 +562,8 @@ try {
 |------|------|
 | Pipeline 클래스 | `shell/Pipeline.java` |
 | PR | [PR #13](https://github.com/kwonsunbin/CodeFabInterpreter/pull/13) `refactor/shell` |
-| 핵심 커밋 | `3372489` — "Shell에서 Pipeline 추출 — REPL 루프와 실행 책임 분리" |
-| 테스트 커밋 | `ca989dd` — "Pipeline 단위 테스트 추가 — stdin 없이 실행 경로 검증" |
+| 핵심 커밋 | [`3372489`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/3372489) — "Shell에서 Pipeline 추출 — REPL 루프와 실행 책임 분리" |
+| 테스트 커밋 | [`ca989dd`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/ca989dd) — "Pipeline 단위 테스트 추가 — stdin 없이 실행 경로 검증" |
 | 단위 테스트 | `shell/PipelineTest.java` |
 
 **Before** — PR #13 이전: Shell이 Assembler·Checker·Executor를 직접 참조 + 실행 로직 혼재
@@ -671,8 +671,8 @@ public class FileRunner {
 | 구분 | 위치 |
 |------|------|
 | 테스트 파일 | `executor/ExecutorTest.java` — 150건 |
-| Red 커밋 | `ec304f3` — "test(executor): 함수·배열 기능 Unit Test 추가 (손 AST, Checker 우회)" |
-| Green 커밋 | `f34c674` — "feat(executor): 함수 선언/호출·배열 리터럴/인덱싱 실행 구현" |
+| Red 커밋 | [`ec304f3`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/ec304f3) — "test(executor): 함수·배열 기능 Unit Test 추가 (손 AST, Checker 우회)" |
+| Green 커밋 | [`f34c674`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/f34c674) — "feat(executor): 함수 선언/호출·배열 리터럴/인덱싱 실행 구현" |
 | 관련 PR | PR #36 (`feat/executor-function-array`) |
 
 **Before** — Red 단계: Executor 미구현, 테스트가 먼저 존재
@@ -763,8 +763,8 @@ private String exec(List<Stmt> stmts) {
 | 구분 | 위치 |
 |------|------|
 | 테스트 파일 | `EndToEndTest.java` — 70건+ |
-| 초기 도입 PR | PR #12 (`test/EndToEnd`) — 커밋 `917f619`, `7b91cfe` |
-| 심화 추가 | 커밋 `a6103d4` (0 나누기), `b402fd0` (타입 오류 메시지) |
+| 초기 도입 PR | PR #12 (`test/EndToEnd`) — 커밋 [`917f619`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/917f619), [`7b91cfe`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/7b91cfe) |
+| 심화 추가 | 커밋 [`a6103d4`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/a6103d4) (0 나누기), [`b402fd0`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/b402fd0) (타입 오류 메시지) |
 
 **Before** — E2E 테스트 없이 유닛 테스트만 존재하던 시기의 문제
 
@@ -833,7 +833,7 @@ class EndToEndTest {
 
 - **두 격리 전략의 용도 구분**: `run()` — 기능 독립 검증, `runSession()` — REPL 누적 상태 검증
 - **회귀 방지**: PR #31의 Environment 통합 리팩터 후 70건 E2E가 즉시 회귀를 잡음
-- **실제 파이프라인 오류 포착**: `EQUAL_EQUAL` 파싱 누락(커밋 `ad07358`)처럼 유닛 테스트로 잡을 수 없는 버그를 조기 발견
+- **실제 파이프라인 오류 포착**: `EQUAL_EQUAL` 파싱 누락(커밋 [`ad07358`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/ad07358))처럼 유닛 테스트로 잡을 수 없는 버그를 조기 발견
 
 ---
 
@@ -844,7 +844,7 @@ class EndToEndTest {
 | 구분 | 위치 |
 |------|------|
 | 테스트 파일 | `executor/OptimizationIntegrationTest.java` |
-| 관련 커밋 | `40211d7` — "feat(executor): Checker 최적화를 Executor에 연동" |
+| 관련 커밋 | [`40211d7`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/40211d7) — "feat(executor): Checker 최적화를 Executor에 연동" |
 | 관련 PR | PR #31 (`feat/executor-extension`) |
 
 **Before** — 최적화 연동 없이 Executor가 항상 전체 평가
@@ -1065,8 +1065,8 @@ private Expr printExpr(String src) {
 | 구분 | 위치 |
 |------|------|
 | PR | [PR #31](https://github.com/kwonsunbin/CodeFabInterpreter/pull/31) |
-| 핵심 커밋 | `f2a06b5` — "Scope/Environment를 단일 Environment로 통합" |
-| 리뷰 반영 커밋 | `54ba976` — "정적 바인딩을 슬롯 인덱스 기반으로 전환 (PR #31 리뷰 반영)" |
+| 핵심 커밋 | [`f2a06b5`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/f2a06b5) — "Scope/Environment를 단일 Environment로 통합" |
+| 리뷰 반영 커밋 | [`54ba976`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/54ba976) — "정적 바인딩을 슬롯 인덱스 기반으로 전환 (PR #31 리뷰 반영)" |
 | 영향 파일 | `Checker.java`, `Executor.java`, `Environment.java`, `Main.java` |
 
 **Before** — Checker의 `Scope`와 Executor의 `Environment`가 각자 독립 관리
@@ -1148,9 +1148,9 @@ public Object visitVariable(Expr.Variable expr) {
 | 구분 | 위치 |
 |------|------|
 | PR | [PR #16](https://github.com/kwonsunbin/CodeFabInterpreter/pull/16) |
-| 핵심 커밋 | `8f25b28` — "SRP 적용 — Scope 관리 책임을 ScopeStack으로 분리" |
-| 관련 커밋 | `f3c0893` — "OCP 적용 — SemanticRule 인터페이스로 규칙 외부화" |
-| 관련 커밋 | `8269186` — "Checker에서 Expr.Visitor 구현 제거 — scanExpr()로 통합" |
+| 핵심 커밋 | [`8f25b28`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/8f25b28) — "SRP 적용 — Scope 관리 책임을 ScopeStack으로 분리" |
+| 관련 커밋 | [`f3c0893`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/f3c0893) — "OCP 적용 — SemanticRule 인터페이스로 규칙 외부화" |
+| 관련 커밋 | [`8269186`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/8269186) — "Checker에서 Expr.Visitor 구현 제거 — scanExpr()로 통합" |
 
 **Before** — Checker가 `Expr.Visitor` 구현 + Scope 관리 + 의미 검사 모두 담당
 
@@ -1220,8 +1220,8 @@ public class Checker implements Stmt.Visitor<Void> {  // ← Expr.Visitor 제거
 | 구분 | 위치 |
 |------|------|
 | PR | [PR #14](https://github.com/kwonsunbin/CodeFabInterpreter/pull/14) `refactor/logger` |
-| 핵심 커밋 | `cb3f388` — "Logger 출력 스트림 의존성 주입 — System.err 하드코딩 제거" |
-| 테스트 커밋 | `2be773f` — "Logger 단위 테스트 추가 — 출력/verbose 게이팅 검증" |
+| 핵심 커밋 | [`cb3f388`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/cb3f388) — "Logger 출력 스트림 의존성 주입 — System.err 하드코딩 제거" |
+| 테스트 커밋 | [`2be773f`](https://github.com/kwonsunbin/CodeFabInterpreter/commit/2be773f) — "Logger 단위 테스트 추가 — 출력/verbose 게이팅 검증" |
 
 **Before** — `System.err` 하드코딩으로 테스트 불가
 
